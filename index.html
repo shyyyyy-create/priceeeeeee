@@ -1,277 +1,387 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Trash2, Edit3, Save, Download, Upload, ShoppingCart, ChevronRight, History, Calculator } from 'lucide-react';
-
-// --- 常數定義：分類數據 ---
-const CATEGORIES = {
-  '護膚品': ['化妝水', '精華', '乳液/面霜', '防曬', '潔面', '卸妝'],
-  '化妝品Base': ['妝前', '氣墊', '粉底', '遮瑕', '腮紅', '光/陰影'],
-  '化妝品Eyes': ['眉筆', '眼線/臥蠶', '眼影', '睫毛膏'],
-  '化妝品Lip': ['唇線筆', '唇釉', '唇膏'],
-  '其他': ['手部膚理', '身體護理', '香水', '零食', '生活雜貨']
-};
-
-// --- 退稅計算邏輯 ---
-const calculateRefund = (total) => {
-  if (total < 15000) return 0;
-  const tiers = [
-    { limit: 30000, refund: 1000 }, { limit: 50000, refund: 2000 }, { limit: 75000, refund: 3000 },
-    { limit: 100000, refund: 5000 }, { limit: 125000, refund: 7000 }, { limit: 150000, refund: 8000 },
-    { limit: 175000, refund: 9000 }, { limit: 200000, refund: 10000 }, { limit: 225000, refund: 12000 },
-    { limit: 250000, refund: 13000 }, { limit: 275000, refund: 15000 }, { limit: 300000, refund: 17000 },
-    { limit: 325000, refund: 19000 }, { limit: 350000, refund: 21000 }, { limit: 375000, refund: 23000 },
-    { limit: 400000, refund: 25000 }, { limit: 425000, refund: 27000 }, { limit: 450000, refund: 28000 },
-    { limit: 475000, refund: 30000 }, { limit: 500000, refund: 32000 }, { limit: 550000, refund: 35000 },
-    { limit: 600000, refund: 37000 }, { limit: 650000, refund: 41000 }
-  ];
-  const tier = tiers.find(t => total < t.limit);
-  return tier ? tier.refund : 41000;
-};
-
-export default function OliveYoungApp() {
-  const [activeTab, setActiveTab] = useState('inventory'); // 導覽切換
-  const [products, setProducts] = useState([]);
-  const [plans, setPlans] = useState([]);
-  
-  // --- 持久化緩存 ---
-  useEffect(() => {
-    const savedProducts = localStorage.getItem('oy_products');
-    const savedPlans = localStorage.getItem('oy_plans');
-    if (savedProducts) setProducts(JSON.parse(savedProducts));
-    if (savedPlans) setPlans(JSON.parse(savedPlans));
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('oy_products', JSON.stringify(products));
-    localStorage.setItem('oy_plans', JSON.stringify(plans));
-  }, [products, plans]);
-
-  // --- 匯出/匯入功能 ---
-  const exportData = () => {
-    const data = JSON.stringify({ products, plans });
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `olive_young_backup_${new Date().toISOString().slice(0,10)}.json`;
-    link.click();
-  };
-
-  const importData = (e) => {
-    const file = e.target.files[0];
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const { products: p, plans: pl } = JSON.parse(event.target.result);
-      setProducts(p); setPlans(pl);
-    };
-    reader.readAsText(file);
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-900">
-      {/* 頂部導覽列 */}
-      <header className="sticky top-0 z-50 bg-white border-b px-4 py-3 flex justify-between items-center shadow-sm">
-        <h1 className="text-xl font-bold text-green-600">Olive Young Tracker</h1>
-        <div className="flex gap-2">
-          <button onClick={exportData} className="p-2 bg-gray-100 rounded-full"><Download size={20}/></button>
-          <label className="p-2 bg-gray-100 rounded-full cursor-pointer">
-            <Upload size={20}/><input type="file" hidden onChange={importData}/>
-          </label>
-        </div>
-      </header>
-
-      <main className="max-w-md mx-auto p-4">
-        {activeTab === 'register' && <RegistrationPage products={products} setProducts={setProducts} />}
-        {activeTab === 'inventory' && <InventoryPage products={products} setProducts={setProducts} plans={plans} setPlans={setPlans} />}
-        {activeTab === 'plans' && <PlansPage plans={plans} setPlans={setPlans} />}
-        {activeTab === 'calc' && <QuickCalcPage products={products} />}
-      </main>
-
-      {/* 底部導覽列 - 避免遮擋 */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-3 shadow-lg z-50">
-        <NavBtn active={activeTab === 'register'} label="登記" onClick={() => setActiveTab('register')} icon={<Plus size={20}/>}/>
-        <NavBtn active={activeTab === 'inventory'} label="庫存" onClick={() => setActiveTab('inventory')} icon={<Search size={20}/>}/>
-        <NavBtn active={activeTab === 'plans'} label="計劃" onClick={() => setActiveTab('plans')} icon={<ShoppingCart size={20}/>}/>
-        <NavBtn active={activeTab === 'calc'} label="速算" onClick={() => setActiveTab('calc')} icon={<Calculator size={20}/>}/>
-      </nav>
-    </div>
-  );
-}
-
-// --- 分頁組件 (登記頁) ---
-function RegistrationPage({ products, setProducts }) {
-  const [form, setForm] = useState({ 
-    name: '', img: '', link: '', mainCat: '護膚品', subCat: '化妝水', 
-    specs: [{ name: '默認規格', originalPrice: '', specialPrice: '', specialStart: '', specialEnd: '', couponPrice: '', couponStart: '', couponEnd: '', dailyPrice: '', dailyStart: '', dailyEnd: '' }]
-  });
-
-  const addSpec = () => setForm({...form, specs: [...form.specs, { name: '', originalPrice: '' }]});
-
-  const saveProduct = () => {
-    setProducts([...products, { ...form, id: Date.now(), status: '未收藏' }]);
-    alert('產品已登記！');
-  };
-
-  return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-bold">產品登記</h2>
-      <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
-        <input placeholder="產品名稱" className="w-full border p-2 rounded" onChange={e => setForm({...form, name: e.target.value})}/>
-        <input placeholder="圖片 Link" className="w-full border p-2 rounded" onChange={e => setForm({...form, img: e.target.value})}/>
-        
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {Object.keys(CATEGORIES).map(cat => (
-            <button key={cat} onClick={() => setForm({...form, mainCat: cat, subCat: CATEGORIES[cat][0]})} 
-              className={`px-3 py-1 rounded-full whitespace-nowrap ${form.mainCat === cat ? 'bg-green-500 text-white' : 'bg-gray-200'}`}>{cat}</button>
-          ))}
-        </div>
-        <div className="flex gap-2 overflow-x-auto pb-2 border-t pt-2">
-          {CATEGORIES[form.mainCat].map(sub => (
-            <button key={sub} onClick={() => setForm({...form, subCat: sub})} 
-              className={`px-3 py-1 rounded-full whitespace-nowrap text-sm ${form.subCat === sub ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}>{sub}</button>
-          ))}
-        </div>
-
-        {form.specs.map((spec, idx) => (
-          <div key={idx} className="border-t pt-2 mt-2 space-y-2">
-            <input placeholder="規格 (如: 50ml)" className="w-full border p-2 rounded text-sm" onChange={e => {
-              const newSpecs = [...form.specs]; newSpecs[idx].name = e.target.value; setForm({...form, specs: newSpecs});
-            }}/>
-            <div className="grid grid-cols-2 gap-2">
-              <input type="number" placeholder="原價" className="border p-2 rounded text-sm" onChange={e => {
-                const newSpecs = [...form.specs]; newSpecs[idx].originalPrice = e.target.value; setForm({...form, specs: newSpecs});
-              }}/>
-              <input type="number" placeholder="特價" className="border p-2 rounded text-sm" />
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Olive Young 價格管家</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        [v-cloak] { display: none; }
+        .active-tab { border-bottom: 3px solid #6366f1; color: #6366f1; }
+        .filter-clip { cursor: pointer; transition: all 0.2s; }
+        .filter-clip.active { background-color: #6366f1; color: white; border-color: #6366f1; }
+        body { background-color: #f8fafc; padding-bottom: 80px; }
+    </style>
+</head>
+<body>
+    <div id="app" v-cloak>
+        <header class="bg-white shadow-sm sticky top-0 z-50 px-4 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-indigo-600">Olive Price Tracker</h1>
+            <div class="flex gap-2">
+                <button @click="exportData" class="text-xs bg-gray-100 px-2 py-1 rounded">匯出</button>
+                <button @click="triggerImport" class="text-xs bg-gray-100 px-2 py-1 rounded">匯入</button>
+                <input type="file" id="importInput" class="hidden" @change="importData">
             </div>
-          </div>
-        ))}
-        <button onClick={addSpec} className="w-full py-2 border-dashed border-2 text-gray-500 rounded">+ 增加規格</button>
-        <button onClick={saveProduct} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold">儲存產品</button>
-      </div>
-    </div>
-  );
-}
+        </header>
 
-// --- 分頁組件 (產品庫頁 - 簡化示意) ---
-function InventoryPage({ products, setProducts, plans, setPlans }) {
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('全部');
+        <main class="max-w-4xl mx-auto p-4">
+            
+            <section v-if="currentTab === 'register'" class="space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <h2 class="text-lg font-bold mb-4">📝 登記新產品</h2>
+                    <div class="space-y-4">
+                        <input v-model="form.name" type="text" placeholder="產品名稱 (例如: Anua 魚腥草化妝水)" class="w-full border rounded-lg p-2">
+                        <input v-model="form.img" type="text" placeholder="圖片連結 URL" class="w-full border rounded-lg p-2 text-sm">
+                        <input v-model="form.link" type="text" placeholder="Olive Young 產品連結" class="w-full border rounded-lg p-2 text-sm">
+                        
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium">大類：</label>
+                            <div class="flex flex-wrap gap-2">
+                                <span v-for="(subs, cat) in categories" :key="cat" 
+                                      @click="form.category = cat; form.subCategory = ''"
+                                      :class="['filter-clip px-3 py-1 border rounded-full text-sm', form.category === cat ? 'active' : 'bg-white']">
+                                    {{ cat }}
+                                </span>
+                            </div>
+                        </div>
+                        <div v-if="form.category" class="space-y-2">
+                            <label class="text-sm font-medium">子分類：</label>
+                            <div class="flex flex-wrap gap-2">
+                                <span v-for="sub in categories[form.category]" :key="sub" 
+                                      @click="form.subCategory = sub"
+                                      :class="['filter-clip px-3 py-1 border rounded-full text-xs text-gray-600', form.subCategory === sub ? 'active' : 'bg-gray-50']">
+                                    {{ sub }}
+                                </span>
+                            </div>
+                        </div>
 
-  const filtered = products.filter(p => p.name.includes(search) && (filter === '全部' || p.mainCat === filter));
+                        <div class="border-t pt-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="font-bold">產品規格 (容量/型號)</label>
+                                <button @click="addSpec" class="text-indigo-600 text-sm">+ 增加規格</button>
+                            </div>
+                            <div v-for="(spec, index) in form.specs" :key="index" class="bg-gray-50 p-4 rounded-lg mb-4 space-y-3 relative">
+                                <button v-if="form.specs.length > 1" @click="form.specs.splice(index, 1)" class="absolute top-2 right-2 text-red-400">×</button>
+                                <input v-model="spec.name" type="text" placeholder="規格名稱 (如: 250ml+50ml)" class="w-full border rounded p-2 text-sm">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="space-y-1">
+                                        <label class="text-xs text-gray-500">原價 (KRW)</label>
+                                        <input v-model.number="spec.priceOrig" type="number" class="w-full border rounded p-1">
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-xs text-gray-500">一般特價 (KRW)</label>
+                                        <input v-model.number="spec.priceSale" type="number" class="w-full border rounded p-1">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input v-model="spec.saleStart" type="date" class="text-xs border p-1 rounded">
+                                    <input v-model="spec.saleEnd" type="date" class="text-xs border p-1 rounded">
+                                </div>
+                                <p class="text-xs text-gray-400 italic">支援輸入限時優惠券與一日特惠日期...</p>
+                            </div>
+                        </div>
 
-  return (
-    <div className="space-y-4">
-      <div className="flex gap-2 bg-white p-2 rounded-lg border shadow-sm">
-        <Search className="text-gray-400" />
-        <input className="w-full outline-none" placeholder="搜尋產品..." onChange={e => setSearch(e.target.value)}/>
-      </div>
-
-      <div className="flex gap-2 overflow-x-auto no-scrollbar">
-        {['全部', '護膚品', '化妝品Base', '想買', '需要', '必買'].map(f => (
-          <button key={f} onClick={() => setFilter(f)} className={`px-4 py-1 rounded-full border ${filter === f ? 'bg-black text-white' : 'bg-white'}`}>{f}</button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-4">
-        {filtered.map(p => (
-          <div key={p.id} className="bg-white p-3 rounded-xl shadow-sm border relative">
-            <div className="flex gap-3">
-              <div className="w-20 h-20 bg-gray-100 rounded-md overflow-hidden">
-                <img src={p.img || 'https://via.placeholder.com/150'} alt={p.name} className="object-cover w-full h-full" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-sm leading-tight">{p.name}</h3>
-                <p className="text-xs text-gray-500 mt-1">{p.mainCat} > {p.subCat}</p>
-                <div className="flex gap-1 mt-2">
-                   <button className="text-[10px] px-2 py-0.5 border rounded-full bg-orange-50 text-orange-600">想買</button>
-                   <button className="text-[10px] px-2 py-0.5 border rounded-full bg-red-50 text-red-600">必買</button>
+                        <button @click="saveProduct" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition">儲存登記</button>
+                    </div>
                 </div>
-              </div>
+            </section>
+
+            <section v-if="currentTab === 'library'" class="space-y-4">
+                <div class="flex gap-2 bg-white p-2 rounded-lg shadow-sm border">
+                    <input v-model="searchQuery" type="text" placeholder="搜尋產品名稱..." class="flex-1 p-1 outline-none">
+                    <i class="fas fa-search self-center text-gray-400 px-2"></i>
+                </div>
+
+                <div v-for="prod in filteredProducts" :key="prod.id" class="bg-white rounded-xl shadow-sm overflow-hidden border">
+                    <div class="flex p-4 gap-4">
+                        <img :src="prod.img || 'https://via.placeholder.com/100'" class="w-20 h-20 object-cover rounded-md">
+                        <div class="flex-1">
+                            <div class="flex justify-between">
+                                <span class="text-xs text-indigo-500 font-bold">{{ prod.category }} > {{ prod.subCategory }}</span>
+                                <div class="space-x-2">
+                                    <button @click="editProduct(prod)" class="text-gray-400"><i class="fas fa-edit"></i></button>
+                                    <button @click="deleteProduct(prod.id)" class="text-red-300"><i class="fas fa-trash"></i></button>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-gray-800">{{ prod.name }}</h3>
+                            
+                            <div class="mt-2 space-y-2">
+                                <div v-for="spec in prod.specs" :key="spec.id" class="text-sm bg-gray-50 p-2 rounded">
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-medium">{{ spec.name }}</span>
+                                        <span class="text-red-500 font-bold">{{ spec.priceSale || spec.priceOrig }}₩</span>
+                                    </div>
+                                    <button @click="openPlanModal(prod, spec)" class="mt-2 w-full bg-indigo-50 text-indigo-600 text-xs py-1 rounded">+ 加入計劃</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex border-t divide-x">
+                        <button @click="setStatus(prod, '想買')" :class="['flex-1 py-2 text-xs', prod.status==='想買'?'bg-pink-100 text-pink-600':'']">想買</button>
+                        <button @click="setStatus(prod, '需要')" :class="['flex-1 py-2 text-xs', prod.status==='需要'?'bg-blue-100 text-blue-600':'']">需要</button>
+                        <button @click="setStatus(prod, '必買')" :class="['flex-1 py-2 text-xs', prod.status==='必買'?'bg-red-100 text-red-600':'']">必買</button>
+                    </div>
+                </div>
+            </section>
+
+            <section v-if="currentTab === 'plans'" class="space-y-4">
+                <button @click="addNewPlan" class="w-full py-3 border-2 border-dashed border-indigo-200 text-indigo-500 rounded-xl font-medium">+ 新增購物計劃</button>
+                
+                <div v-for="plan in plans" :key="plan.id" class="bg-white rounded-2xl shadow-sm border p-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <input v-model="plan.name" class="font-bold text-lg border-b border-transparent focus:border-indigo-300 outline-none">
+                        <button @click="deletePlan(plan.id)" class="text-red-400 text-sm">刪除</button>
+                    </div>
+
+                    <div v-for="(item, idx) in plan.items" :key="idx" class="flex items-center gap-3 py-2 border-b last:border-0">
+                        <div class="flex-1">
+                            <p class="text-sm font-bold">{{ item.prodName }}</p>
+                            <p class="text-xs text-gray-500">{{ item.specName }} ({{ item.price }}₩)</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button @click="item.qty > 1 ? item.qty-- : null" class="w-6 h-6 bg-gray-100 rounded">-</button>
+                            <span class="w-4 text-center text-sm">{{ item.qty }}</span>
+                            <button @click="item.qty++" class="w-6 h-6 bg-gray-100 rounded">+</button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 bg-indigo-50 p-4 rounded-xl space-y-1">
+                        <div class="flex justify-between text-sm"><span>合共總額:</span><span>{{ calculateTotal(plan) }} ₩</span></div>
+                        <div class="flex justify-between text-sm font-bold text-indigo-600"><span>退稅金額:</span><span>- {{ calculateTax(calculateTotal(plan)) }} ₩</span></div>
+                        <div class="flex justify-between text-lg font-black border-t pt-2 mt-2"><span>實付金額:</span><span>{{ calculateTotal(plan) - calculateTax(calculateTotal(plan)) }} ₩</span></div>
+                    </div>
+                </div>
+            </section>
+
+            <section v-if="currentTab === 'quickcalc'" class="space-y-4">
+                <div class="bg-white p-4 rounded-xl shadow-sm border">
+                    <h3 class="font-bold mb-3">⚡ 快速計算 / 臨時項目</h3>
+                    <div class="flex gap-2 mb-4">
+                        <input v-model="tempItem.name" placeholder="項目" class="flex-1 border rounded p-2 text-sm">
+                        <input v-model.number="tempItem.price" placeholder="價格" class="w-24 border rounded p-2 text-sm">
+                        <button @click="addTempItem" class="bg-indigo-600 text-white px-4 rounded">+</button>
+                    </div>
+
+                    <div v-for="(item, idx) in quickList" :key="idx" class="flex justify-between py-2 border-b">
+                        <span class="text-sm">{{ item.name }} x {{ item.qty }}</span>
+                        <div class="flex items-center gap-4">
+                            <span class="text-sm font-bold">{{ item.price * item.qty }}₩</span>
+                            <button @click="quickList.splice(idx,1)" class="text-red-400">×</button>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 border-t pt-4">
+                        <p class="text-right text-sm">總計: {{ quickTotal }} ₩</p>
+                        <p class="text-right text-sm text-green-600">退稅: -{{ calculateTax(quickTotal) }} ₩</p>
+                        <p class="text-right text-xl font-black">應付: {{ quickTotal - calculateTax(quickTotal) }} ₩</p>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around items-center py-2 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+            <button @click="currentTab = 'register'" :class="['flex flex-col items-center gap-1 p-2', currentTab === 'register' ? 'text-indigo-600' : 'text-gray-400']">
+                <i class="fas fa-plus-circle text-xl"></i><span class="text-[10px]">登記</span>
+            </button>
+            <button @click="currentTab = 'library'" :class="['flex flex-col items-center gap-1 p-2', currentTab === 'library' ? 'text-indigo-600' : 'text-gray-400']">
+                <i class="fas fa-th-large text-xl"></i><span class="text-[10px]">產品庫</span>
+            </button>
+            <button @click="currentTab = 'plans'" :class="['flex flex-col items-center gap-1 p-2', currentTab === 'plans' ? 'text-indigo-600' : 'text-gray-400']">
+                <i class="fas fa-list-check text-xl"></i><span class="text-[10px]">計劃</span>
+            </button>
+            <button @click="currentTab = 'quickcalc'" :class="['flex flex-col items-center gap-1 p-2', currentTab === 'quickcalc' ? 'text-indigo-600' : 'text-gray-400']">
+                <i class="fas fa-calculator text-xl"></i><span class="text-[10px]">速算</span>
+            </button>
+        </nav>
+
+        <div v-if="showPlanModal" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[100]">
+            <div class="bg-white rounded-2xl p-6 w-full max-w-sm">
+                <h3 class="font-bold mb-4 text-center">加入到哪個計劃？</h3>
+                <div class="space-y-2 mb-6">
+                    <button v-for="plan in plans" :key="plan.id" @click="confirmAddToPlan(plan)" class="w-full py-3 bg-gray-50 hover:bg-indigo-50 rounded-xl text-left px-4 border">
+                        {{ plan.name }}
+                    </button>
+                </div>
+                <button @click="showPlanModal = false" class="w-full py-2 text-gray-500">取消</button>
             </div>
-            <div className="mt-3 flex justify-between items-center border-t pt-2">
-              <span className="text-sm font-bold text-green-700">₩{p.specs[0]?.originalPrice || 0}</span>
-              <button className="text-xs bg-blue-500 text-white px-3 py-1 rounded-lg">加入計劃</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// --- 分頁組件 (計劃頁) ---
-function PlansPage({ plans, setPlans }) {
-  const [activePlanIdx, setActivePlanIdx] = useState(null);
-
-  const addNewPlan = () => {
-    const name = prompt('計劃名稱？');
-    if (name) setPlans([...plans, { name, items: [] }]);
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-bold">我的購物計劃</h2>
-        <button onClick={addNewPlan} className="bg-green-600 text-white p-2 rounded-full"><Plus size={18}/></button>
-      </div>
-
-      {plans.length === 0 && <p className="text-center text-gray-400 py-10">暫無計劃，快去新增吧！</p>}
-
-      {plans.map((plan, idx) => (
-        <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-bold text-lg">{plan.name}</h3>
-            <div className="flex gap-2">
-              <Edit3 size={16} className="text-gray-400"/>
-              <Trash2 size={16} className="text-red-400" onClick={() => {
-                const n = [...plans]; n.splice(idx,1); setPlans(n);
-              }}/>
-            </div>
-          </div>
-          <div className="text-sm text-gray-600 space-y-1">
-            <div className="flex justify-between"><span>預計總額:</span><span>₩0</span></div>
-            <div className="flex justify-between font-bold text-blue-600"><span>退稅金額:</span><span>₩0</span></div>
-          </div>
         </div>
-      ))}
     </div>
-  );
-}
 
-// --- 分頁組件 (速算頁) ---
-function QuickCalcPage({ products }) {
-  const [tempItems, setTempItems] = useState([]);
-  const [total, setTotal] = useState(0);
+    <script>
+        const { createApp, ref, computed, watch, onMounted } = Vue;
 
-  const refund = useMemo(() => calculateRefund(total), [total]);
+        createApp({
+            setup() {
+                const currentTab = ref('register');
+                const products = ref([]);
+                const plans = ref([{ id: Date.now(), name: '我的首爾清單', items: [] }]);
+                const quickList = ref([]);
+                const searchQuery = ref('');
+                
+                // 分類數據
+                const categories = {
+                    '護膚品': ['化妝水', '精華', '乳液/面霜', '防曬', '潔面', '卸妝'],
+                    '化妝品Base': ['妝前', '氣墊', '粉底', '遮瑕', '腮紅', '光/陰影'],
+                    '化妝品Eyes': ['眉筆', '眼線/臥蠶', '眼影', '睫毛膏'],
+                    '化妝品Lip': ['唇線筆', '唇釉', '唇膏'],
+                    '其他': ['手部膚理', '身體護理', '香水', '零食', '生活雜貨']
+                };
 
-  return (
-    <div className="space-y-4">
-      <div className="bg-gradient-to-br from-green-500 to-green-700 p-6 rounded-2xl text-white shadow-lg">
-        <p className="opacity-80 text-sm">實付總額 (退稅後)</p>
-        <h2 className="text-3xl font-black">₩{(total - refund).toLocaleString()}</h2>
-        <div className="flex justify-between mt-4 text-xs bg-white/20 p-2 rounded-lg">
-          <span>總價: ₩{total.toLocaleString()}</span>
-          <span>退稅: ₩{refund.toLocaleString()}</span>
-        </div>
-      </div>
+                // 表單
+                const form = ref({
+                    id: null, name: '', img: '', link: '', category: '', subCategory: '', status: '未收藏',
+                    specs: [{ id: Date.now(), name: '', priceOrig: 0, priceSale: 0, saleStart: '', saleEnd: '' }]
+                });
 
-      <div className="bg-white p-4 rounded-xl shadow-sm border space-y-3">
-        <h3 className="font-bold border-b pb-2">快速計算清單</h3>
-        <div className="min-h-[100px] flex flex-col gap-2">
-           <p className="text-center text-gray-400 text-sm py-4">請從產品庫加入或手動輸入...</p>
-        </div>
-        <button className="w-full py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium">+ 手動增加臨時品項</button>
-      </div>
-    </div>
-  );
-}
+                const tempItem = ref({ name: '', price: null, qty: 1 });
 
-// --- 小組件 ---
-function NavBtn({ active, label, icon, onClick }) {
-  return (
-    <button onClick={onClick} className={`flex flex-col items-center gap-1 ${active ? 'text-green-600' : 'text-gray-400'}`}>
-      {icon}
-      <span className="text-[10px] font-bold">{label}</span>
-    </button>
-  );
-}
+                // 核心邏輯
+                const saveProduct = () => {
+                    if(!form.value.name) return alert('請填寫名稱');
+                    const productData = JSON.parse(JSON.stringify(form.value));
+                    if (productData.id) {
+                        const idx = products.value.findIndex(p => p.id === productData.id);
+                        products.value[idx] = productData;
+                    } else {
+                        productData.id = Date.now();
+                        products.value.push(productData);
+                    }
+                    resetForm();
+                    currentTab.value = 'library';
+                    saveToLocal();
+                };
+
+                const addSpec = () => {
+                    form.value.specs.push({ id: Date.now(), name: '', priceOrig: 0, priceSale: 0, saleStart: '', saleEnd: '' });
+                };
+
+                const deleteProduct = (id) => {
+                    if(confirm('確定刪除？')) {
+                        products.value = products.value.filter(p => p.id !== id);
+                        saveToLocal();
+                    }
+                };
+
+                const editProduct = (prod) => {
+                    form.value = JSON.parse(JSON.stringify(prod));
+                    currentTab.value = 'register';
+                };
+
+                const setStatus = (prod, status) => {
+                    prod.status = status;
+                    saveToLocal();
+                };
+
+                // 計劃邏輯
+                const showPlanModal = ref(false);
+                const pendingItem = ref(null);
+
+                const openPlanModal = (prod, spec) => {
+                    pendingItem.value = { prodName: prod.name, specName: spec.name, price: spec.priceSale || spec.priceOrig, qty: 1 };
+                    showPlanModal.value = true;
+                };
+
+                const confirmAddToPlan = (plan) => {
+                    plan.items.push({...pendingItem.value});
+                    showPlanModal.value = false;
+                    saveToLocal();
+                };
+
+                const addNewPlan = () => {
+                    const name = prompt('計劃名稱', '我的清單 ' + (plans.value.length + 1));
+                    if(name) plans.value.push({ id: Date.now(), name, items: [] });
+                    saveToLocal();
+                };
+
+                // 退稅邏輯
+                const calculateTax = (total) => {
+                    const brackets = [
+                        [600000, 41000], [550000, 37000], [500000, 35000], [475000, 32000],
+                        [450000, 30000], [425000, 28000], [400000, 27000], [375000, 25000],
+                        [350000, 23000], [325000, 21000], [300000, 19000], [275000, 17000],
+                        [250000, 15000], [225000, 13000], [200000, 12000], [175000, 10000],
+                        [150000, 9000], [125000, 8000], [100000, 7000], [75000, 5000],
+                        [50000, 3000], [30000, 2000], [15000, 1000], [0, 0]
+                    ];
+                    for (let [min, tax] of brackets) {
+                        if (total >= min) return tax;
+                    }
+                    return 0;
+                };
+
+                // 計算屬性
+                const filteredProducts = computed(() => {
+                    return products.value.filter(p => p.name.toLowerCase().includes(searchQuery.value.toLowerCase()));
+                });
+
+                const calculateTotal = (plan) => plan.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                
+                const quickTotal = computed(() => quickList.value.reduce((sum, item) => sum + (item.price * item.qty), 0));
+
+                const addTempItem = () => {
+                    if(tempItem.value.name && tempItem.value.price) {
+                        quickList.value.push({...tempItem.value});
+                        tempItem.value = { name: '', price: null, qty: 1 };
+                    }
+                };
+
+                // 本地存儲與匯入匯出
+                const saveToLocal = () => {
+                    localStorage.setItem('ov_data', JSON.stringify({
+                        products: products.value,
+                        plans: plans.value
+                    }));
+                };
+
+                const exportData = () => {
+                    const blob = new Blob([localStorage.getItem('ov_data')], {type: 'application/json'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `olive-backup-${new Date().toLocaleDateString()}.json`;
+                    a.click();
+                };
+
+                const triggerImport = () => document.getElementById('importInput').click();
+                const importData = (e) => {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const data = JSON.parse(event.target.result);
+                        products.value = data.products || [];
+                        plans.value = data.plans || [];
+                        saveToLocal();
+                        alert('匯入成功！');
+                    };
+                    reader.readAsText(e.target.files[0]);
+                };
+
+                const resetForm = () => {
+                    form.value = { id: null, name: '', img: '', link: '', category: '', subCategory: '', status: '未收藏',
+                                   specs: [{ id: Date.now(), name: '', priceOrig: 0, priceSale: 0, saleStart: '', saleEnd: '' }] };
+                };
+
+                onMounted(() => {
+                    const saved = localStorage.getItem('ov_data');
+                    if(saved) {
+                        const data = JSON.parse(saved);
+                        products.value = data.products || [];
+                        plans.value = data.plans || [];
+                    }
+                });
+
+                return {
+                    currentTab, categories, form, products, plans, searchQuery, filteredProducts,
+                    addSpec, saveProduct, editProduct, deleteProduct, setStatus,
+                    showPlanModal, openPlanModal, confirmAddToPlan, addNewPlan,
+                    calculateTotal, calculateTax,
+                    quickList, tempItem, addTempItem, quickTotal,
+                    exportData, triggerImport, importData
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

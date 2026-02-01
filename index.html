@@ -1,366 +1,277 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Olive Young 價格追蹤助手</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .active-tab { border-bottom: 3px solid #f97316; color: #f97316; }
-        .filter-clip { cursor: pointer; padding: 4px 12px; border-radius: 20px; border: 1px solid #e5e7eb; transition: all 0.2s; white-space: nowrap; }
-        .filter-clip.active { background: #f97316; color: white; border-color: #f97316; }
-        .card { border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-    </style>
-</head>
-<body class="bg-gray-50 text-gray-800 pb-20">
+import React, { useState, useEffect, useMemo } from 'react';
+import { Plus, Search, Trash2, Edit3, Save, Download, Upload, ShoppingCart, ChevronRight, History, Calculator } from 'lucide-react';
 
-    <nav class="bg-white shadow-sm sticky top-0 z-50">
-        <div class="flex justify-around items-center p-3 text-sm font-bold">
-            <button onclick="switchTab('register')" id="tab-register" class="py-2 active-tab">登記產品</button>
-            <button onclick="switchTab('library')" id="tab-library" class="py-2">產品庫</button>
-            <button onclick="switchTab('plan')" id="tab-plan" class="py-2">計劃清單</button>
-            <button onclick="switchTab('calc')" id="tab-calc" class="py-2">速算</button>
+// --- 常數定義：分類數據 ---
+const CATEGORIES = {
+  '護膚品': ['化妝水', '精華', '乳液/面霜', '防曬', '潔面', '卸妝'],
+  '化妝品Base': ['妝前', '氣墊', '粉底', '遮瑕', '腮紅', '光/陰影'],
+  '化妝品Eyes': ['眉筆', '眼線/臥蠶', '眼影', '睫毛膏'],
+  '化妝品Lip': ['唇線筆', '唇釉', '唇膏'],
+  '其他': ['手部膚理', '身體護理', '香水', '零食', '生活雜貨']
+};
+
+// --- 退稅計算邏輯 ---
+const calculateRefund = (total) => {
+  if (total < 15000) return 0;
+  const tiers = [
+    { limit: 30000, refund: 1000 }, { limit: 50000, refund: 2000 }, { limit: 75000, refund: 3000 },
+    { limit: 100000, refund: 5000 }, { limit: 125000, refund: 7000 }, { limit: 150000, refund: 8000 },
+    { limit: 175000, refund: 9000 }, { limit: 200000, refund: 10000 }, { limit: 225000, refund: 12000 },
+    { limit: 250000, refund: 13000 }, { limit: 275000, refund: 15000 }, { limit: 300000, refund: 17000 },
+    { limit: 325000, refund: 19000 }, { limit: 350000, refund: 21000 }, { limit: 375000, refund: 23000 },
+    { limit: 400000, refund: 25000 }, { limit: 425000, refund: 27000 }, { limit: 450000, refund: 28000 },
+    { limit: 475000, refund: 30000 }, { limit: 500000, refund: 32000 }, { limit: 550000, refund: 35000 },
+    { limit: 600000, refund: 37000 }, { limit: 650000, refund: 41000 }
+  ];
+  const tier = tiers.find(t => total < t.limit);
+  return tier ? tier.refund : 41000;
+};
+
+export default function OliveYoungApp() {
+  const [activeTab, setActiveTab] = useState('inventory'); // 導覽切換
+  const [products, setProducts] = useState([]);
+  const [plans, setPlans] = useState([]);
+  
+  // --- 持久化緩存 ---
+  useEffect(() => {
+    const savedProducts = localStorage.getItem('oy_products');
+    const savedPlans = localStorage.getItem('oy_plans');
+    if (savedProducts) setProducts(JSON.parse(savedProducts));
+    if (savedPlans) setPlans(JSON.parse(savedPlans));
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('oy_products', JSON.stringify(products));
+    localStorage.setItem('oy_plans', JSON.stringify(plans));
+  }, [products, plans]);
+
+  // --- 匯出/匯入功能 ---
+  const exportData = () => {
+    const data = JSON.stringify({ products, plans });
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `olive_young_backup_${new Date().toISOString().slice(0,10)}.json`;
+    link.click();
+  };
+
+  const importData = (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const { products: p, plans: pl } = JSON.parse(event.target.result);
+      setProducts(p); setPlans(pl);
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-900">
+      {/* 頂部導覽列 */}
+      <header className="sticky top-0 z-50 bg-white border-b px-4 py-3 flex justify-between items-center shadow-sm">
+        <h1 className="text-xl font-bold text-green-600">Olive Young Tracker</h1>
+        <div className="flex gap-2">
+          <button onClick={exportData} className="p-2 bg-gray-100 rounded-full"><Download size={20}/></button>
+          <label className="p-2 bg-gray-100 rounded-full cursor-pointer">
+            <Upload size={20}/><input type="file" hidden onChange={importData}/>
+          </label>
         </div>
-    </nav>
+      </header>
 
-    <main class="max-w-md mx-auto p-4">
+      <main className="max-w-md mx-auto p-4">
+        {activeTab === 'register' && <RegistrationPage products={products} setProducts={setProducts} />}
+        {activeTab === 'inventory' && <InventoryPage products={products} setProducts={setProducts} plans={plans} setPlans={setPlans} />}
+        {activeTab === 'plans' && <PlansPage plans={plans} setPlans={setPlans} />}
+        {activeTab === 'calc' && <QuickCalcPage products={products} />}
+      </main>
+
+      {/* 底部導覽列 - 避免遮擋 */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-3 shadow-lg z-50">
+        <NavBtn active={activeTab === 'register'} label="登記" onClick={() => setActiveTab('register')} icon={<Plus size={20}/>}/>
+        <NavBtn active={activeTab === 'inventory'} label="庫存" onClick={() => setActiveTab('inventory')} icon={<Search size={20}/>}/>
+        <NavBtn active={activeTab === 'plans'} label="計劃" onClick={() => setActiveTab('plans')} icon={<ShoppingCart size={20}/>}/>
+        <NavBtn active={activeTab === 'calc'} label="速算" onClick={() => setActiveTab('calc')} icon={<Calculator size={20}/>}/>
+      </nav>
+    </div>
+  );
+}
+
+// --- 分頁組件 (登記頁) ---
+function RegistrationPage({ products, setProducts }) {
+  const [form, setForm] = useState({ 
+    name: '', img: '', link: '', mainCat: '護膚品', subCat: '化妝水', 
+    specs: [{ name: '默認規格', originalPrice: '', specialPrice: '', specialStart: '', specialEnd: '', couponPrice: '', couponStart: '', couponEnd: '', dailyPrice: '', dailyStart: '', dailyEnd: '' }]
+  });
+
+  const addSpec = () => setForm({...form, specs: [...form.specs, { name: '', originalPrice: '' }]});
+
+  const saveProduct = () => {
+    setProducts([...products, { ...form, id: Date.now(), status: '未收藏' }]);
+    alert('產品已登記！');
+  };
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-bold">產品登記</h2>
+      <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
+        <input placeholder="產品名稱" className="w-full border p-2 rounded" onChange={e => setForm({...form, name: e.target.value})}/>
+        <input placeholder="圖片 Link" className="w-full border p-2 rounded" onChange={e => setForm({...form, img: e.target.value})}/>
         
-        <section id="page-register" class="space-y-4">
-            <h2 class="text-xl font-bold mb-4">新增產品資訊</h2>
-            <div class="bg-white p-4 card space-y-3">
-                <input type="text" id="reg-name" placeholder="產品名稱 (如: Anua 魚腥草化妝水)" class="w-full p-2 border rounded">
-                <input type="text" id="reg-img" placeholder="圖片連結 URL" class="w-full p-2 border rounded">
-                <input type="text" id="reg-link" placeholder="產品網址" class="w-full p-2 border rounded">
-                
-                <div class="py-2">
-                    <p class="text-xs text-gray-500 mb-2">分類</p>
-                    <div id="category-filters" class="flex flex-wrap gap-2">
-                        </div>
-                </div>
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {Object.keys(CATEGORIES).map(cat => (
+            <button key={cat} onClick={() => setForm({...form, mainCat: cat, subCat: CATEGORIES[cat][0]})} 
+              className={`px-3 py-1 rounded-full whitespace-nowrap ${form.mainCat === cat ? 'bg-green-500 text-white' : 'bg-gray-200'}`}>{cat}</button>
+          ))}
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-2 border-t pt-2">
+          {CATEGORIES[form.mainCat].map(sub => (
+            <button key={sub} onClick={() => setForm({...form, subCat: sub})} 
+              className={`px-3 py-1 rounded-full whitespace-nowrap text-sm ${form.subCat === sub ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}>{sub}</button>
+          ))}
+        </div>
 
-                <hr>
-                <div id="spec-container" class="space-y-4">
-                    <div class="spec-item bg-gray-50 p-3 rounded">
-                        <p class="font-bold mb-2">規格 1</p>
-                        <input type="text" placeholder="規格名稱 (如: 250ml+50ml)" class="w-full p-2 border rounded mb-2 spec-name">
-                        <div class="grid grid-cols-2 gap-2">
-                            <input type="number" placeholder="原價" class="p-2 border rounded spec-price">
-                            <input type="number" placeholder="特價" class="p-2 border rounded spec-sale">
-                        </div>
-                        <div class="mt-2 text-xs text-gray-500">
-                            <label>特惠期 (起 - 訖)</label>
-                            <div class="flex gap-1">
-                                <input type="date" class="border p-1 rounded w-full spec-start">
-                                <input type="date" class="border p-1 rounded w-full spec-end">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <button onclick="addSpecField()" class="text-sm text-blue-500 font-medium">+ 增加規格</button>
-                <button onclick="saveProduct()" class="w-full bg-orange-500 text-white py-3 rounded-lg font-bold mt-4">儲存到產品庫</button>
+        {form.specs.map((spec, idx) => (
+          <div key={idx} className="border-t pt-2 mt-2 space-y-2">
+            <input placeholder="規格 (如: 50ml)" className="w-full border p-2 rounded text-sm" onChange={e => {
+              const newSpecs = [...form.specs]; newSpecs[idx].name = e.target.value; setForm({...form, specs: newSpecs});
+            }}/>
+            <div className="grid grid-cols-2 gap-2">
+              <input type="number" placeholder="原價" className="border p-2 rounded text-sm" onChange={e => {
+                const newSpecs = [...form.specs]; newSpecs[idx].originalPrice = e.target.value; setForm({...form, specs: newSpecs});
+              }}/>
+              <input type="number" placeholder="特價" className="border p-2 rounded text-sm" />
             </div>
-        </section>
+          </div>
+        ))}
+        <button onClick={addSpec} className="w-full py-2 border-dashed border-2 text-gray-500 rounded">+ 增加規格</button>
+        <button onClick={saveProduct} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold">儲存產品</button>
+      </div>
+    </div>
+  );
+}
 
-        <section id="page-library" class="hidden space-y-4">
-            <div class="flex gap-2">
-                <input type="text" id="search-lib" placeholder="搜尋產品..." class="flex-1 p-2 border rounded-full px-4">
-                <button onclick="exportData()" class="p-2 text-gray-500"><i class="fas fa-file-export"></i></button>
-                <button onclick="importData()" class="p-2 text-gray-500"><i class="fas fa-file-import"></i></button>
-            </div>
-            
-            <div class="flex gap-2 overflow-x-auto pb-2" id="status-filters">
-                <span class="filter-clip active" onclick="filterStatus('all')">全部</span>
-                <span class="filter-clip" onclick="filterStatus('想買')">想買</span>
-                <span class="filter-clip" onclick="filterStatus('需要')">需要</span>
-                <span class="filter-clip" onclick="filterStatus('必買')">必買</span>
-            </div>
+// --- 分頁組件 (產品庫頁 - 簡化示意) ---
+function InventoryPage({ products, setProducts, plans, setPlans }) {
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('全部');
 
-            <div id="library-list" class="space-y-4">
+  const filtered = products.filter(p => p.name.includes(search) && (filter === '全部' || p.mainCat === filter));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 bg-white p-2 rounded-lg border shadow-sm">
+        <Search className="text-gray-400" />
+        <input className="w-full outline-none" placeholder="搜尋產品..." onChange={e => setSearch(e.target.value)}/>
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto no-scrollbar">
+        {['全部', '護膚品', '化妝品Base', '想買', '需要', '必買'].map(f => (
+          <button key={f} onClick={() => setFilter(f)} className={`px-4 py-1 rounded-full border ${filter === f ? 'bg-black text-white' : 'bg-white'}`}>{f}</button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4">
+        {filtered.map(p => (
+          <div key={p.id} className="bg-white p-3 rounded-xl shadow-sm border relative">
+            <div className="flex gap-3">
+              <div className="w-20 h-20 bg-gray-100 rounded-md overflow-hidden">
+                <img src={p.img || 'https://via.placeholder.com/150'} alt={p.name} className="object-cover w-full h-full" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-sm leading-tight">{p.name}</h3>
+                <p className="text-xs text-gray-500 mt-1">{p.mainCat} > {p.subCat}</p>
+                <div className="flex gap-1 mt-2">
+                   <button className="text-[10px] px-2 py-0.5 border rounded-full bg-orange-50 text-orange-600">想買</button>
+                   <button className="text-[10px] px-2 py-0.5 border rounded-full bg-red-50 text-red-600">必買</button>
                 </div>
-        </section>
-
-        <section id="page-plan" class="hidden space-y-4">
-            <div class="flex justify-between items-center">
-                <h2 class="text-xl font-bold">購物計劃</h2>
-                <button onclick="createNewPlan()" class="bg-black text-white px-3 py-1 rounded-full text-sm">+ 新增計劃</button>
+              </div>
             </div>
-            <div id="plan-list" class="space-y-4"></div>
-        </section>
-
-        <section id="page-calc" class="hidden space-y-4">
-            <h2 class="text-xl font-bold">即時稅務計算</h2>
-            <div class="bg-white p-4 card">
-                <div id="calc-items" class="space-y-3 mb-4">
-                    </div>
-                <button onclick="addManualItem()" class="w-full border-2 border-dashed border-gray-300 py-2 rounded text-gray-500 mb-4">+ 加入臨時項目</button>
-                
-                <div class="bg-orange-50 p-4 rounded-lg space-y-2">
-                    <div class="flex justify-between"><span>總額 (KRW):</span><span id="total-price">0</span></div>
-                    <div class="flex justify-between text-blue-600 font-bold"><span>退稅額:</span><span id="refund-amount">0</span></div>
-                    <div class="flex justify-between text-xl font-black border-t pt-2"><span>實付:</span><span id="final-price">0</span></div>
-                </div>
+            <div className="mt-3 flex justify-between items-center border-t pt-2">
+              <span className="text-sm font-bold text-green-700">₩{p.specs[0]?.originalPrice || 0}</span>
+              <button className="text-xs bg-blue-500 text-white px-3 py-1 rounded-lg">加入計劃</button>
             </div>
-        </section>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-    </main>
+// --- 分頁組件 (計劃頁) ---
+function PlansPage({ plans, setPlans }) {
+  const [activePlanIdx, setActivePlanIdx] = useState(null);
 
-    <script>
-        // --- 核心數據結構 ---
-        let products = JSON.parse(localStorage.getItem('oy_products')) || [];
-        let plans = JSON.parse(localStorage.getItem('oy_plans')) || [];
-        
-        const categories = {
-            "護膚品": ["化妝水", "精華", "乳液/面霜", "防曬", "潔面", "卸妝"],
-            "化妝品Base": ["妝前", "氣墊", "粉底", "遮瑕", "腮紅", "光/陰影"],
-            "化妝品Eyes": ["眉筆", "眼線/臥蠶", "眼影", "睫毛膏"],
-            "化妝品Lip": ["唇線筆", "唇釉", "唇膏"],
-            "其他": ["手部膚理", "身體護理", "香水", "零食", "生活雜貨"]
-        };
+  const addNewPlan = () => {
+    const name = prompt('計劃名稱？');
+    if (name) setPlans([...plans, { name, items: [] }]);
+  };
 
-        // --- 初始化 UI ---
-        function initCategoryFilters() {
-            const container = document.getElementById('category-filters');
-            Object.keys(categories).forEach(cat => {
-                categories[cat].forEach(sub => {
-                    const span = document.createElement('span');
-                    span.className = 'filter-clip text-xs';
-                    span.innerText = sub;
-                    span.onclick = () => {
-                        document.querySelectorAll('#category-filters .filter-clip').forEach(el => el.classList.remove('active'));
-                        span.classList.add('active');
-                    };
-                    container.appendChild(span);
-                });
-            });
-        }
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-bold">我的購物計劃</h2>
+        <button onClick={addNewPlan} className="bg-green-600 text-white p-2 rounded-full"><Plus size={18}/></button>
+      </div>
 
-        // --- 退稅計算公式 ---
-        function calculateRefund(total) {
-            const tiers = [
-                [600000, 41000], [550000, 37000], [500000, 35000], [475000, 32000], 
-                [450000, 30000], [425000, 28000], [400000, 27000], [375000, 25000],
-                [350000, 23000], [325000, 21000], [300000, 19000], [275000, 17000],
-                [250000, 15000], [225000, 13000], [200000, 12000], [175000, 10000],
-                [150000, 9000], [125000, 8000], [100000, 7000], [75000, 5000],
-                [50000, 3000], [30000, 2000], [15000, 1000]
-            ];
-            for (let [min, refund] of tiers) {
-                if (total >= min) return refund;
-            }
-            return 0;
-        }
+      {plans.length === 0 && <p className="text-center text-gray-400 py-10">暫無計劃，快去新增吧！</p>}
 
-        // --- 頁面切換 ---
-        function switchTab(tab) {
-            document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
-            document.getElementById(`page-${tab}`).classList.remove('hidden');
-            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-tab'));
-            document.getElementById(`tab-${tab}`).classList.add('active-tab');
-            if(tab === 'library') renderLibrary();
-            if(tab === 'plan') renderPlans();
-            if(tab === 'calc') renderCalc();
-        }
+      {plans.map((plan, idx) => (
+        <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-bold text-lg">{plan.name}</h3>
+            <div className="flex gap-2">
+              <Edit3 size={16} className="text-gray-400"/>
+              <Trash2 size={16} className="text-red-400" onClick={() => {
+                const n = [...plans]; n.splice(idx,1); setPlans(n);
+              }}/>
+            </div>
+          </div>
+          <div className="text-sm text-gray-600 space-y-1">
+            <div className="flex justify-between"><span>預計總額:</span><span>₩0</span></div>
+            <div className="flex justify-between font-bold text-blue-600"><span>退稅金額:</span><span>₩0</span></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-        // --- 產品管理邏輯 ---
-        function addSpecField() {
-            const container = document.getElementById('spec-container');
-            const count = container.children.length + 1;
-            const div = document.createElement('div');
-            div.className = 'spec-item bg-gray-50 p-3 rounded';
-            div.innerHTML = `
-                <p class="font-bold mb-2 text-sm flex justify-between">規格 ${count} <button class="text-red-500 text-xs" onclick="this.parentElement.parentElement.remove()">刪除</button></p>
-                <input type="text" placeholder="規格名稱" class="w-full p-2 border rounded mb-2 spec-name">
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="number" placeholder="原價" class="p-2 border rounded spec-price">
-                    <input type="number" placeholder="特價" class="p-2 border rounded spec-sale">
-                </div>
-            `;
-            container.appendChild(div);
-        }
+// --- 分頁組件 (速算頁) ---
+function QuickCalcPage({ products }) {
+  const [tempItems, setTempItems] = useState([]);
+  const [total, setTotal] = useState(0);
 
-        function saveProduct() {
-            const name = document.getElementById('reg-name').value;
-            const subCat = document.querySelector('#category-filters .active')?.innerText || '其他';
-            const img = document.getElementById('reg-img').value;
-            const link = document.getElementById('reg-link').value;
-            
-            const specItems = document.querySelectorAll('.spec-item');
-            const specs = Array.from(specItems).map(el => ({
-                id: Date.now() + Math.random(),
-                name: el.querySelector('.spec-name').value,
-                originalPrice: Number(el.querySelector('.spec-price').value),
-                salePrice: Number(el.querySelector('.spec-sale').value),
-                startDate: el.querySelector('.spec-start')?.value || '',
-                endDate: el.querySelector('.spec-end')?.value || '',
-                history: []
-            }));
+  const refund = useMemo(() => calculateRefund(total), [total]);
 
-            if(!name) return alert('請輸入產品名稱');
+  return (
+    <div className="space-y-4">
+      <div className="bg-gradient-to-br from-green-500 to-green-700 p-6 rounded-2xl text-white shadow-lg">
+        <p className="opacity-80 text-sm">實付總額 (退稅後)</p>
+        <h2 className="text-3xl font-black">₩{(total - refund).toLocaleString()}</h2>
+        <div className="flex justify-between mt-4 text-xs bg-white/20 p-2 rounded-lg">
+          <span>總價: ₩{total.toLocaleString()}</span>
+          <span>退稅: ₩{refund.toLocaleString()}</span>
+        </div>
+      </div>
 
-            products.push({ id: Date.now(), name, subCat, img, link, specs, status: '未收藏' });
-            localStorage.setItem('oy_products', JSON.stringify(products));
-            alert('儲存成功！');
-            switchTab('library');
-        }
+      <div className="bg-white p-4 rounded-xl shadow-sm border space-y-3">
+        <h3 className="font-bold border-b pb-2">快速計算清單</h3>
+        <div className="min-h-[100px] flex flex-col gap-2">
+           <p className="text-center text-gray-400 text-sm py-4">請從產品庫加入或手動輸入...</p>
+        </div>
+        <button className="w-full py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium">+ 手動增加臨時品項</button>
+      </div>
+    </div>
+  );
+}
 
-        function renderLibrary() {
-            const list = document.getElementById('library-list');
-            list.innerHTML = '';
-            products.forEach(p => {
-                const div = document.createElement('div');
-                div.className = 'bg-white p-3 card border';
-                div.innerHTML = `
-                    <div class="flex gap-3">
-                        <img src="${p.img || 'https://via.placeholder.com/80'}" class="w-20 h-20 object-cover rounded">
-                        <div class="flex-1">
-                            <h3 class="font-bold">${p.name}</h3>
-                            <p class="text-xs text-orange-500">${p.subCat}</p>
-                            <div class="flex gap-1 mt-2">
-                                <button onclick="setStatus(${p.id}, '想買')" class="text-[10px] px-2 border rounded ${p.status==='想買'?'bg-orange-100 border-orange-400':''}">想買</button>
-                                <button onclick="setStatus(${p.id}, '需要')" class="text-[10px] px-2 border rounded ${p.status==='需要'?'bg-orange-100 border-orange-400':''}">需要</button>
-                                <button onclick="setStatus(${p.id}, '必買')" class="text-[10px] px-2 border rounded ${p.status==='必買'?'bg-orange-100 border-orange-400':''}">必買</button>
-                            </div>
-                        </div>
-                        <button onclick="deleteProduct(${p.id})" class="text-gray-300"><i class="fas fa-trash"></i></button>
-                    </div>
-                    <div class="mt-3 space-y-2">
-                        ${p.specs.map(s => `
-                            <div class="text-xs p-2 bg-gray-50 rounded flex justify-between items-center">
-                                <span>${s.name}: <span class="line-through text-gray-400">₩${s.originalPrice}</span> <b class="text-red-500">₩${s.salePrice}</b></span>
-                                <button onclick="addToPlanUI(${p.id}, ${s.id})" class="bg-blue-500 text-white px-2 py-1 rounded">加入計劃</button>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-                list.appendChild(div);
-            });
-        }
-
-        function setStatus(pid, status) {
-            const p = products.find(i => i.id === pid);
-            p.status = p.status === status ? '未收藏' : status;
-            localStorage.setItem('oy_products', JSON.stringify(products));
-            renderLibrary();
-        }
-
-        function deleteProduct(pid) {
-            if(confirm('確定刪除？')) {
-                products = products.filter(i => i.id !== pid);
-                localStorage.setItem('oy_products', JSON.stringify(products));
-                renderLibrary();
-            }
-        }
-
-        // --- 計劃功能 ---
-        function createNewPlan() {
-            const name = prompt("計劃名稱:", "首爾之旅 " + new Date().toLocaleDateString());
-            if(name) {
-                plans.push({ id: Date.now(), name, items: [] });
-                localStorage.setItem('oy_plans', JSON.stringify(plans));
-                renderPlans();
-            }
-        }
-
-        function addToPlanUI(pid, sid) {
-            if(plans.length === 0) return alert('請先新增一個計劃');
-            const p = products.find(i => i.id === pid);
-            const s = p.specs.find(i => i.id === sid);
-            
-            const planIdx = prompt(`加入到哪個計劃？(輸入數字 0-${plans.length-1})\n` + plans.map((pl, i) => `${i}: ${pl.name}`).join('\n'));
-            if(plans[planIdx]) {
-                plans[planIdx].items.push({ ...s, prodName: p.name, qty: 1 });
-                localStorage.setItem('oy_plans', JSON.stringify(plans));
-                alert('已加入計劃');
-            }
-        }
-
-        function renderPlans() {
-            const list = document.getElementById('plan-list');
-            list.innerHTML = '';
-            plans.forEach((pl, idx) => {
-                let total = pl.items.reduce((sum, item) => sum + (item.salePrice * item.qty), 0);
-                let refund = calculateRefund(total);
-                
-                const div = document.createElement('div');
-                div.className = 'bg-white p-4 card border';
-                div.innerHTML = `
-                    <div class="flex justify-between font-bold mb-2">
-                        <span>${pl.name}</span>
-                        <button onclick="deletePlan(${pl.id})" class="text-red-400 text-sm">刪除計劃</button>
-                    </div>
-                    <div class="space-y-2">
-                        ${pl.items.map((item, iIdx) => `
-                            <div class="flex justify-between text-sm border-b pb-1">
-                                <div>${item.prodName} (${item.name})</div>
-                                <div class="flex items-center gap-2">
-                                    <button onclick="updatePlanQty(${idx}, ${iIdx}, -1)">-</button>
-                                    <span>${item.qty}</span>
-                                    <button onclick="updatePlanQty(${idx}, ${iIdx}, 1)">+</button>
-                                    <span class="ml-2">₩${item.salePrice * item.qty}</span>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="mt-4 text-right text-xs">
-                        <p>總計: ₩${total}</p>
-                        <p class="text-blue-500 font-bold">預計退稅: ₩${refund}</p>
-                        <p class="text-lg font-bold">預計實付: ₩${total - refund}</p>
-                    </div>
-                `;
-                list.appendChild(div);
-            });
-        }
-
-        function updatePlanQty(pIdx, iIdx, delta) {
-            plans[pIdx].items[iIdx].qty += delta;
-            if(plans[pIdx].items[iIdx].qty <= 0) plans[pIdx].items.splice(iIdx, 1);
-            localStorage.setItem('oy_plans', JSON.stringify(plans));
-            renderPlans();
-        }
-
-        function deletePlan(id) {
-            if(confirm('刪除計劃？')) {
-                plans = plans.filter(p => p.id !== id);
-                localStorage.setItem('oy_plans', JSON.stringify(plans));
-                renderPlans();
-            }
-        }
-
-        // --- 備份功能 ---
-        function exportData() {
-            const data = JSON.stringify({ products, plans });
-            const blob = new Blob([data], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `olive_young_backup.json`;
-            a.click();
-        }
-
-        function importData() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.onchange = e => {
-                const file = e.target.files[0];
-                const reader = new FileReader();
-                reader.onload = event => {
-                    const imported = JSON.parse(event.target.result);
-                    products = imported.products;
-                    plans = imported.plans;
-                    localStorage.setItem('oy_products', JSON.stringify(products));
-                    localStorage.setItem('oy_plans', JSON.stringify(plans));
-                    renderLibrary();
-                };
-                reader.readAsText(file);
-            };
-            input.click();
-        }
-
-        // 初始化
-        initCategoryFilters();
-        switchTab('register');
-
-    </script>
-</body>
-</html>
+// --- 小組件 ---
+function NavBtn({ active, label, icon, onClick }) {
+  return (
+    <button onClick={onClick} className={`flex flex-col items-center gap-1 ${active ? 'text-green-600' : 'text-gray-400'}`}>
+      {icon}
+      <span className="text-[10px] font-bold">{label}</span>
+    </button>
+  );
+}

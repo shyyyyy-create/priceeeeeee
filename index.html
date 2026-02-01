@@ -1,0 +1,220 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { Search, Plus, ShoppingBag, List, Calculator, Edit2, Trash2, ChevronDown, Download, Upload, Heart, Star, CheckCircle } from 'lucide-react';
+
+// --- 數據結構定義 ---
+const CATEGORIES = {
+  "護膚品": ["化妝水", "精華", "乳液/面霜", "防曬", "潔面", "卸妝"],
+  "化妝品Base": ["妝前", "氣墊", "粉底", "遮瑕", "腮紅", "光/陰影"],
+  "化妝品Eyes": ["眉筆", "眼線/臥蠶", "眼影", "睫毛膏"],
+  "化妝品Lip": ["唇線筆", "唇釉", "唇膏"],
+  "其他": ["手部膚理", "身體護理", "香水", "零食", "生活雜貨"]
+};
+
+// --- 退稅計算法則 ---
+const calculateTaxRefund = (total) => {
+  if (total < 15000) return 0;
+  const tiers = [
+    { limit: 30000, refund: 1000 }, { limit: 50000, refund: 2000 }, { limit: 75000, refund: 3000 },
+    { limit: 100000, refund: 5000 }, { limit: 125000, refund: 7000 }, { limit: 150000, refund: 8000 },
+    { limit: 175000, refund: 9000 }, { limit: 200000, refund: 10000 }, { limit: 225000, refund: 12000 },
+    { limit: 250000, refund: 13000 }, { limit: 275000, refund: 15000 }, { limit: 300000, refund: 17000 },
+    { limit: 325000, refund: 19000 }, { limit: 350000, refund: 21000 }, { limit: 375000, refund: 23000 },
+    { limit: 400000, refund: 25000 }, { limit: 425000, refund: 27000 }, { limit: 450000, refund: 28000 },
+    { limit: 475000, refund: 30000 }, { limit: 500000, refund: 32000 }, { limit: 550000, refund: 35000 },
+    { limit: 600000, refund: 37000 }, { limit: 650000, refund: 41000 }
+  ];
+  for (let tier of tiers) {
+    if (total < tier.limit) return tier.refund;
+  }
+  return 41000;
+};
+
+const App = () => {
+  const [activeTab, setActiveTab] = useState('登記');
+  const [products, setProducts] = useState([]);
+  const [plans, setPlans] = useState([]);
+  
+  // 初始化載入緩存
+  useEffect(() => {
+    const saved = localStorage.getItem('price_tracker_data');
+    if (saved) {
+      const { products, plans } = JSON.parse(saved);
+      setProducts(products || []);
+      setPlans(plans || []);
+    }
+  }, []);
+
+  // 數據發生變化時自動緩存
+  useEffect(() => {
+    localStorage.setItem('price_tracker_data', JSON.stringify({ products, plans }));
+  }, [products, plans]);
+
+  // --- 匯出功能 ---
+  const exportData = () => {
+    const dataStr = JSON.stringify({ products, plans });
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', `backup_${new Date().toLocaleDateString()}.json`);
+    linkElement.click();
+  };
+
+  // --- 登記頁組件 ---
+  const RegistrationView = () => {
+    const [formData, setFormData] = useState({
+      id: Date.now(),
+      name: '', image: '', link: '', mainCat: '護膚品', subCat: '化妝水',
+      status: '未收藏', specs: [{ id: Date.now(), name: '默認規格', originalPrice: 0, salePrice: 0, saleStart: '', saleEnd: '', history: [] }]
+    });
+
+    const addProduct = () => {
+      setProducts([...products, formData]);
+      alert('已成功登記產品！');
+    };
+
+    return (
+      <div className="p-4 space-y-4 pb-20">
+        <h2 className="text-xl font-bold text-orange-600">產品登記</h2>
+        <div className="bg-white p-4 rounded-2xl shadow-sm space-y-3">
+          <input className="w-full border-b p-2 focus:outline-none focus:border-orange-500" placeholder="產品名稱" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+          <input className="w-full border-b p-2 focus:outline-none" placeholder="圖片連結 (URL)" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} />
+          
+          <div className="flex gap-2 overflow-x-auto py-2">
+            {Object.keys(CATEGORIES).map(cat => (
+              <button 
+                key={cat}
+                onClick={() => setFormData({...formData, mainCat: cat, subCat: CATEGORIES[cat][0]})}
+                className={`px-3 py-1 rounded-full whitespace-nowrap text-sm ${formData.mainCat === cat ? 'bg-orange-500 text-white' : 'bg-gray-100'}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto py-2 border-t">
+            {CATEGORIES[formData.mainCat].map(sub => (
+              <button 
+                key={sub}
+                onClick={() => setFormData({...formData, subCat: sub})}
+                className={`px-3 py-1 rounded-full whitespace-nowrap text-xs ${formData.subCat === sub ? 'border border-orange-500 text-orange-500' : 'border border-gray-200 text-gray-400'}`}
+              >
+                {sub}
+              </button>
+            ))}
+          </div>
+          
+          <button onClick={addProduct} className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white py-3 rounded-full font-bold mt-4">確認登記</button>
+        </div>
+      </div>
+    );
+  };
+
+  // --- 產品庫頁組件 ---
+  const LibraryView = () => {
+    const [search, setSearch] = useState('');
+    const [filterStatus, setFilterStatus] = useState('全部');
+
+    const filtered = products.filter(p => 
+      (search === '' || p.name.includes(search)) && 
+      (filterStatus === '全部' || p.status === filterStatus)
+    );
+
+    return (
+      <div className="p-4 space-y-4 pb-20">
+        <div className="relative">
+          <Search className="absolute left-3 top-2.5 text-gray-400 w-5 h-5" />
+          <input className="w-full bg-gray-100 rounded-full py-2 pl-10 pr-4 outline-none" placeholder="搜尋已登記產品..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+
+        <div className="flex gap-2 text-sm overflow-x-auto">
+          {['全部', '想買', '需要', '必買', '未收藏'].map(s => (
+            <button key={s} onClick={() => setFilterStatus(s)} className={`px-4 py-1 rounded-full ${filterStatus === s ? 'bg-black text-white' : 'bg-white border'}`}>{s}</button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+          {filtered.map(p => (
+            <div key={p.id} className="bg-white p-3 rounded-xl shadow-sm flex flex-col gap-2">
+              <div className="flex gap-3">
+                <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                   <img src={p.image || 'https://via.placeholder.com/100'} alt="" className="w-full h-full object-cover" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-gray-800">{p.name}</h3>
+                  <p className="text-xs text-gray-400">{p.mainCat} / {p.subCat}</p>
+                  <div className="flex gap-2 mt-2">
+                    <button className="text-[10px] bg-pink-50 text-pink-500 px-2 py-0.5 rounded flex items-center gap-1"><Heart size={10}/> 想買</button>
+                    <button className="text-[10px] bg-blue-50 text-blue-500 px-2 py-0.5 rounded flex items-center gap-1"><Star size={10}/> 需要</button>
+                  </div>
+                </div>
+              </div>
+              <div className="border-t pt-2 flex justify-between items-center">
+                 <span className="text-sm font-bold text-orange-600">現價: ¥{p.specs[0].salePrice}</span>
+                 <button className="bg-orange-500 text-white text-xs px-3 py-1 rounded-full">+ 計劃</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // --- 底部導航 ---
+  const Nav = () => (
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-3 px-2 z-50">
+      <button onClick={() => setActiveTab('登記')} className={`flex flex-col items-center ${activeTab === '登記' ? 'text-orange-500' : 'text-gray-400'}`}>
+        <Plus size={20} /> <span className="text-[10px]">登記</span>
+      </button>
+      <button onClick={() => setActiveTab('產品庫')} className={`flex flex-col items-center ${activeTab === '產品庫' ? 'text-orange-500' : 'text-gray-400'}`}>
+        <ShoppingBag size={20} /> <span className="text-[10px]">產品庫</span>
+      </button>
+      <button onClick={() => setActiveTab('計劃')} className={`flex flex-col items-center ${activeTab === '計劃' ? 'text-orange-500' : 'text-gray-400'}`}>
+        <List size={20} /> <span className="text-[10px]">計劃</span>
+      </button>
+      <button onClick={() => setActiveTab('速算')} className={`flex flex-col items-center ${activeTab === '速算' ? 'text-orange-500' : 'text-gray-400'}`}>
+        <Calculator size={20} /> <span className="text-[10px]">速算</span>
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="max-w-md mx-auto min-h-screen bg-gray-50 pb-10">
+      {/* 頂部標題與備份 */}
+      <div className="bg-white p-4 flex justify-between items-center shadow-sm">
+        <h1 className="text-lg font-black italic tracking-tighter text-orange-500">PRICE TRACKER</h1>
+        <div className="flex gap-3">
+          <Download size={18} className="text-gray-500 cursor-pointer" onClick={exportData}/>
+          <Upload size={18} className="text-gray-500" />
+        </div>
+      </div>
+
+      {activeTab === '登記' && <RegistrationView />}
+      {activeTab === '產品庫' && <LibraryView />}
+      {activeTab === '計劃' && (
+        <div className="p-4 text-center text-gray-400 mt-10">
+          <List size={48} className="mx-auto mb-2 opacity-20" />
+          <p>暫無計劃，請從產品庫添加產品</p>
+        </div>
+      )}
+      {activeTab === '速算' && (
+        <div className="p-4 space-y-4">
+          <div className="bg-orange-500 p-6 rounded-3xl text-white shadow-lg shadow-orange-200">
+            <p className="text-sm opacity-80">預計實付總額</p>
+            <h2 className="text-4xl font-bold mt-1">¥ 0.00</h2>
+            <div className="flex justify-between mt-4 text-xs bg-orange-600/50 p-2 rounded-lg">
+              <span>退稅額: ¥0</span>
+              <span>總件數: 0</span>
+            </div>
+          </div>
+          <button className="w-full border-2 border-dashed border-gray-300 py-4 rounded-2xl text-gray-400 text-sm flex items-center justify-center gap-2">
+            <Plus size={16}/> 快捷增加未登記產品
+          </button>
+        </div>
+      )}
+
+      <Nav />
+    </div>
+  );
+};
+
+export default App;

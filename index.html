@@ -3,285 +3,314 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>商品比價追蹤器</title>
+    <title>SmartPrice 購物比價助手</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .pill-active { @apply bg-blue-600 text-white border-blue-600; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        [x-cloak] { display: none !important; }
+        .pill-active { @apply bg-blue-600 text-white shadow-lg; }
+        .pill-inactive { @apply bg-gray-100 text-gray-700 hover:bg-gray-200; }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 text-gray-900 font-sans" x-data="shopApp()">
 
-    <nav class="bg-white shadow-md p-4 sticky top-0 z-10">
-        <div class="max-w-4xl mx-auto flex justify-around">
-            <button onclick="showTab('add')" class="font-bold text-blue-600">登記商品</button>
-            <button onclick="showTab('list')" class="font-bold text-gray-600">已登記商品</button>
-            <button onclick="showTab('plan')" class="font-bold text-gray-600">採購清單</button>
+    <nav class="bg-white shadow-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between items-center h-16">
+                <span class="text-xl font-bold text-blue-600">SmartPrice</span>
+                <div class="flex space-x-2 overflow-x-auto">
+                    <button @click="view = 'add'" :class="view === 'add' ? 'text-blue-600 font-bold' : ''" class="px-3 py-2">商品登記</button>
+                    <button @click="view = 'list'" :class="view === 'list' ? 'text-blue-600 font-bold' : ''" class="px-3 py-2">已登記</button>
+                    <button @click="view = 'plan'" :class="view === 'plan' ? 'text-blue-600 font-bold' : ''" class="px-3 py-2">購買清單</button>
+                    <button @click="view = 'tax'" :class="view === 'tax' ? 'text-blue-600 font-bold' : ''" class="px-3 py-2">退稅計算</button>
+                </div>
+            </div>
         </div>
     </nav>
 
-    <main class="max-w-4xl mx-auto p-4 pb-24">
-        
-        <section id="add-tab" class="tab-content active">
-            <h2 class="text-xl font-bold mb-4">新商品登記</h2>
-            <form id="productForm" class="space-y-4 bg-white p-6 rounded-lg shadow">
-                <div>
-                    <label class="block text-sm font-medium">商品名稱</label>
-                    <input type="text" id="pName" required class="w-full border p-2 rounded">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <input type="url" id="pLink" placeholder="商品連結" class="border p-2 rounded">
-                    <input type="url" id="pImg" placeholder="圖片連結" class="border p-2 rounded">
+    <main class="max-w-4xl mx-auto p-4 md:p-8">
+
+        <section x-show="view === 'add'" x-cloak class="space-y-6">
+            <h2 class="text-2xl font-bold border-l-4 border-blue-500 pl-3">新增商品登記</h2>
+            
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" x-model="form.name" placeholder="商品名稱" class="w-full border p-2 rounded">
+                    <input type="text" x-model="form.link" placeholder="商品連結 (URL)" class="w-full border p-2 rounded">
+                    <input type="text" x-model="form.img" placeholder="商品圖片連結" class="w-full border p-2 rounded">
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium mb-2">商品分類</label>
-                    <div id="categoryPills" class="flex flex-wrap gap-2">
+                    <label class="block text-sm font-medium mb-2">主分類</label>
+                    <div class="flex flex-wrap gap-2">
+                        <template x-for="(sub, main) in categories" :key="main">
+                            <button @click="form.mainCat = main; form.subCat = ''" 
+                                    :class="form.mainCat === main ? 'bg-blue-600 text-white' : 'bg-gray-100'"
+                                    class="px-4 py-1.5 rounded-full text-sm transition" x-text="main"></button>
+                        </template>
+                    </div>
+                </div>
+
+                <div x-show="form.mainCat">
+                    <label class="block text-sm font-medium mb-2">次分類</label>
+                    <div class="flex flex-wrap gap-2">
+                        <template x-for="item in categories[form.mainCat]" :key="item">
+                            <button @click="form.subCat = item" 
+                                    :class="form.subCat === item ? 'bg-green-600 text-white' : 'bg-gray-100'"
+                                    class="px-4 py-1.5 rounded-full text-sm transition" x-text="item"></button>
+                        </template>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-2">商品規格</label>
+                    <div class="space-y-2">
+                        <template x-for="(spec, index) in form.specs" :key="index">
+                            <div class="flex gap-2">
+                                <input type="text" x-model="form.specs[index]" placeholder="規格內容 (例: 50ml, 紅色)" class="flex-1 border p-2 rounded">
+                                <button @click="form.specs.splice(index, 1)" class="text-red-500 px-2">✕</button>
+                            </div>
+                        </template>
+                        <button @click="form.specs.push('')" class="text-blue-500 text-sm font-bold">+ 增加規格</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-500">原價</label>
+                        <input type="number" x-model="form.price" class="w-full border p-2 rounded">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500">特價</label>
+                        <input type="number" x-model="form.promoPrice" class="w-full border p-2 rounded">
+                    </div>
+                    <div class="col-span-2 md:col-span-1 grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-gray-500">特價開始</label>
+                            <input type="date" x-model="form.promoStart" class="w-full border p-2 rounded text-xs">
                         </div>
-                    <div id="subCategoryPills" class="flex flex-wrap gap-2 mt-2"></div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium mb-1">商品規格</label>
-                    <div id="specsContainer" class="space-y-2">
-                        <input type="text" class="spec-input w-full border p-2 rounded" placeholder="規格 (如: 50ml, 色號01)">
-                    </div>
-                    <button type="button" onclick="addSpecField()" class="mt-2 text-sm text-blue-500">+ 增加規格</button>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium">原價</label>
-                        <input type="number" id="pPrice" class="w-full border p-2 rounded">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium">特價</label>
-                        <input type="number" id="pSale" class="w-full border p-2 rounded">
+                        <div>
+                            <label class="block text-xs text-gray-500">特價結束</label>
+                            <input type="date" x-model="form.promoEnd" class="w-full border p-2 rounded text-xs">
+                        </div>
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-4 text-sm">
-                    <input type="date" id="saleStart" title="特價開始">
-                    <input type="date" id="saleEnd" title="特價結束">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="border p-3 rounded-lg">
+                        <label class="flex items-center space-x-2 mb-2">
+                            <input type="checkbox" x-model="form.hasCoupon">
+                            <span class="font-bold">使用優惠券</span>
+                        </label>
+                        <div x-show="form.hasCoupon" class="space-y-2">
+                            <input type="number" x-model="form.couponPrice" placeholder="折後價格" class="w-full border p-1 rounded text-sm">
+                            <div class="flex gap-1">
+                                <input type="date" x-model="form.couponStart" class="w-1/2 border p-1 rounded text-xs">
+                                <input type="date" x-model="form.couponEnd" class="w-1/2 border p-1 rounded text-xs">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="border p-3 rounded-lg bg-yellow-50">
+                        <label class="flex items-center space-x-2 mb-2">
+                            <input type="checkbox" x-model="form.isSpecial">
+                            <span class="font-bold text-yellow-700 text-sm">🔥 今天特優 (1Day Only)</span>
+                        </label>
+                        <div x-show="form.isSpecial" class="space-y-2">
+                            <input type="number" x-model="form.specialPrice" placeholder="特優價格" class="w-full border p-1 rounded text-sm">
+                            <div class="flex gap-1">
+                                <input type="date" x-model="form.specialStart" class="w-1/2 border p-1 rounded text-xs">
+                                <input type="date" x-model="form.specialEnd" class="w-1/2 border p-1 rounded text-xs">
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="flex gap-4 p-2 bg-gray-100 rounded">
-                    <label><input type="checkbox" id="couponCheck"> 優惠券</label>
-                    <label><input type="checkbox" id="promoCheck"> 今天特優</label>
-                </div>
-                <div id="promoDates" class="hidden grid grid-cols-2 gap-4 text-sm">
-                    <input type="date" id="promoStart" title="優惠開始">
-                    <input type="date" id="promoEnd" title="優惠結束">
-                </div>
-
-                <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded font-bold">儲存商品</button>
-            </form>
-        </section>
-
-        <section id="list-tab" class="tab-content">
-            <h2 class="text-xl font-bold mb-4">所有商品</h2>
-            <div id="productList" class="grid gap-4">
-                </div>
-        </section>
-
-        <section id="plan-tab" class="tab-content">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold">採購清單</h2>
-                <button onclick="createNewList()" class="bg-green-500 text-white px-3 py-1 rounded text-sm">+ 新清單</button>
+                <button @click="saveProduct" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition">儲存商品</button>
             </div>
-            <div id="shoppingLists" class="space-y-6">
+        </section>
+
+        <section x-show="view === 'list'" x-cloak class="space-y-6">
+            <h2 class="text-2xl font-bold border-l-4 border-green-500 pl-3">已登記商品庫</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <template x-for="(product, index) in products" :key="index">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border flex gap-4">
+                        <img :src="product.img || 'https://via.placeholder.com/100'" class="w-24 h-24 object-cover rounded-lg border">
+                        <div class="flex-1">
+                            <div class="flex justify-between">
+                                <h3 class="font-bold text-lg" x-text="product.name"></h3>
+                                <div class="flex space-x-2">
+                                    <button @click="editProduct(index)" class="text-blue-500"><i class="fas fa-edit"></i></button>
+                                    <button @click="deleteProduct(index)" class="text-red-500"><i class="fas fa-trash"></i></button>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500" x-text="product.mainCat + ' > ' + product.subCat"></p>
+                            <div class="mt-2 text-sm">
+                                <div class="text-gray-400 line-through" x-text="'原價: ' + product.price"></div>
+                                <div class="text-red-500 font-bold" x-text="'特價: ' + product.promoPrice"></div>
+                                <div class="text-xs bg-gray-100 p-1 mt-1 rounded" x-text="'期限: ' + product.promoStart + ' ~ ' + product.promoEnd"></div>
+                            </div>
+                            <div class="mt-2 flex flex-wrap gap-1">
+                                <template x-for="s in product.specs">
+                                    <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded" x-text="s"></span>
+                                </template>
+                            </div>
+                            <button @click="addToPlan(product)" class="mt-3 w-full border border-blue-600 text-blue-600 py-1 rounded text-sm hover:bg-blue-50">+ 加入清單</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </section>
+
+        <section x-show="view === 'plan'" x-cloak class="space-y-6">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold border-l-4 border-purple-500 pl-3">購買清單</h2>
+                <button @click="addList" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm">+ 新增清單</button>
+            </div>
+
+            <template x-for="(list, lIndex) in shoppingLists" :key="lIndex">
+                <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+                    <div class="flex justify-between mb-4">
+                        <input type="text" x-model="list.name" class="text-xl font-bold border-b border-dashed focus:border-purple-500 outline-none">
+                        <button @click="shoppingLists.splice(lIndex, 1)" class="text-red-400">刪除清單</button>
+                    </div>
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 text-xs">
+                            <tr>
+                                <th class="p-2">商品</th>
+                                <th class="p-2 text-center">數量</th>
+                                <th class="p-2 text-right">小計</th>
+                                <th class="p-2"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(item, iIndex) in list.items" :key="iIndex">
+                                <tr class="border-b">
+                                    <td class="p-2">
+                                        <div class="font-medium" x-text="item.name"></div>
+                                        <div class="text-[10px] text-gray-400" x-text="item.price"></div>
+                                    </td>
+                                    <td class="p-2 text-center">
+                                        <input type="number" x-model="item.qty" class="w-12 border rounded text-center">
+                                    </td>
+                                    <td class="p-2 text-right font-bold" x-text="item.qty * item.promoPrice"></td>
+                                    <td class="p-2 text-right">
+                                        <button @click="list.items.splice(iIndex, 1)" class="text-gray-400 hover:text-red-500">✕</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                    <div class="mt-4 text-right">
+                        <span class="text-gray-500">總計：</span>
+                        <span class="text-2xl font-bold text-purple-600" x-text="calculateTotal(list)"></span>
+                    </div>
                 </div>
+            </template>
+        </section>
+
+        <section x-show="view === 'tax'" x-cloak class="space-y-6">
+            <h2 class="text-2xl font-bold border-l-4 border-orange-500 pl-3">韓國退稅快速查詢 (2024+版)</h2>
+            <div class="bg-white p-6 rounded-xl shadow-sm border">
+                <label class="block mb-2">輸入消費金額 (KRW)</label>
+                <input type="number" x-model="taxInput" @input="calculateTax" placeholder="例如: 35000" class="w-full border-2 border-orange-200 p-3 rounded-xl text-xl font-bold mb-4">
+                
+                <div class="bg-orange-50 p-6 rounded-xl text-center">
+                    <p class="text-gray-600">預計可獲退稅額：</p>
+                    <p class="text-4xl font-black text-orange-600" x-text="taxResult + ' KRW'"></p>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="font-bold mb-4">對照表</h3>
+                    <div class="grid grid-cols-2 gap-2 text-sm h-64 overflow-y-auto border-t pt-4">
+                        <template x-for="row in taxTable">
+                            <div class="flex justify-between border-b pb-1">
+                                <span x-text="row.min + ' ~ ' + row.max"></span>
+                                <span class="font-bold text-orange-600" x-text="row.refund"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
         </section>
 
     </main>
 
     <script>
-        // 資料結構定義
-        const categories = {
-            "護膚品": ["化妝水", "精華", "乳液/面霜", "防曬", "潔面", "卸妝"],
-            "化妝品Base": ["妝前", "氣墊", "粉底", "遮瑕", "腮紅", "光/陰影"],
-            "化妝品Eyes": ["眉筆", "眼線/臥蠶", "眼影", "睫毛膏"],
-            "化妝品Lip": ["唇線筆", "唇釉", "唇膏"],
-            "其他": ["手部膚理", "身體護理", "香水", "零食", "生活雜貨"]
-        };
+        function shopApp() {
+            return {
+                view: 'add',
+                taxInput: 0,
+                taxResult: 0,
+                form: {
+                    name: '', link: '', img: '', mainCat: '', subCat: '',
+                    specs: [''], price: 0, promoPrice: 0, promoStart: '', promoEnd: '',
+                    hasCoupon: false, couponPrice: 0, couponStart: '', couponEnd: '',
+                    isSpecial: false, specialPrice: 0, specialStart: '', specialEnd: ''
+                },
+                categories: {
+                    '護膚品': ['化妝水', '精華', '乳液/面霜', '防曬', '潔面', '卸妝'],
+                    '化妝品Base': ['妝前', '氣墊', '粉底', '遮瑕', '腮紅', '光/陰影'],
+                    '化妝品Eyes': ['眉筆', '眼線/臥蠶', '眼影', '睫毛膏'],
+                    '化妝品Lip': ['唇線筆', '唇釉', '唇膏'],
+                    '其他': ['手部膚理', '身體護理', '香水', '零食', '生活雜貨']
+                },
+                products: JSON.parse(localStorage.getItem('products') || '[]'),
+                shoppingLists: JSON.parse(localStorage.getItem('shoppingLists') || '[{"name":"預設清單","items":[]}]'),
+                
+                taxTable: [
+                    {min: 15000, max: 29999, refund: 1000}, {min: 30000, max: 49999, refund: 2000},
+                    {min: 50000, max: 74999, refund: 3000}, {min: 75000, max: 99999, refund: 5000},
+                    {min: 100000, max: 124999, refund: 7000}, {min: 125000, max: 149999, refund: 8000},
+                    {min: 150000, max: 174999, refund: 9000}, {min: 175000, max: 199999, refund: 10000},
+                    {min: 200000, max: 224999, refund: 12000}, {min: 225000, max: 249999, refund: 13000},
+                    {min: 250000, max: 274999, refund: 15000}, {min: 275000, max: 299999, refund: 17000},
+                    {min: 300000, max: 324999, refund: 19000}, {min: 325000, max: 349999, refund: 21000},
+                    {min: 350000, max: 374999, refund: 23000}, {min: 375000, max: 399999, refund: 25000},
+                    {min: 400000, max: 424999, refund: 27000}, {min: 425000, max: 449999, refund: 28000},
+                    {min: 450000, max: 474999, refund: 30000}, {min: 475000, max: 499999, refund: 32000},
+                    {min: 500000, max: 549999, refund: 35000}, {min: 550000, max: 599999, refund: 37000},
+                    {min: 600000, max: 649999, refund: 41000}
+                ],
 
-        let currentCategory = "";
-        let currentSub = "";
-        let products = JSON.parse(localStorage.getItem('products') || '[]');
-        let planLists = JSON.parse(localStorage.getItem('planLists') || '[]');
-
-        // 初始化：渲染分類藥丸
-        function initCategoryPills() {
-            const container = document.getElementById('categoryPills');
-            Object.keys(categories).forEach(cat => {
-                const btn = document.createElement('button');
-                btn.type = "button";
-                btn.className = "px-4 py-1 border rounded-full text-sm";
-                btn.innerText = cat;
-                btn.onclick = () => selectCategory(cat, btn);
-                container.appendChild(btn);
-            });
-        }
-
-        function selectCategory(cat, btn) {
-            currentCategory = cat;
-            document.querySelectorAll('#categoryPills button').forEach(b => b.classList.remove('pill-active'));
-            btn.classList.add('pill-active');
-            
-            const subContainer = document.getElementById('subCategoryPills');
-            subContainer.innerHTML = "";
-            categories[cat].forEach(sub => {
-                const sBtn = document.createElement('button');
-                sBtn.type = "button";
-                sBtn.className = "px-3 py-1 border border-dashed rounded-full text-xs";
-                sBtn.innerText = sub;
-                sBtn.onclick = () => {
-                    currentSub = sub;
-                    document.querySelectorAll('#subCategoryPills button').forEach(b => b.classList.remove('pill-active'));
-                    sBtn.classList.add('pill-active');
-                };
-                subContainer.appendChild(sBtn);
-            });
-        }
-
-        function addSpecField() {
-            const input = document.createElement('input');
-            input.className = "spec-input w-full border p-2 rounded";
-            input.placeholder = "規格";
-            document.getElementById('specsContainer').appendChild(input);
-        }
-
-        // 切換顯示優惠日期
-        document.getElementById('promoCheck').onchange = (e) => {
-            document.getElementById('promoDates').style.display = e.target.checked ? 'grid' : 'none';
-        };
-
-        // 儲存商品
-        document.getElementById('productForm').onsubmit = (e) => {
-            e.preventDefault();
-            const specs = Array.from(document.querySelectorAll('.spec-input')).map(i => i.value).filter(v => v);
-            const newProduct = {
-                id: Date.now(),
-                name: document.getElementById('pName').value,
-                link: document.getElementById('pLink').value,
-                img: document.getElementById('pImg').value,
-                cat: currentCategory,
-                sub: currentSub,
-                specs: specs,
-                price: document.getElementById('pPrice').value,
-                sale: document.getElementById('pSale').value,
-                saleRange: [document.getElementById('saleStart').value, document.getElementById('saleEnd').value],
-                coupon: document.getElementById('couponCheck').checked,
-                promo: document.getElementById('promoCheck').checked,
-                promoRange: [document.getElementById('promoStart').value, document.getElementById('promoEnd').value],
-                history: [{ date: new Date().toLocaleDateString(), price: document.getElementById('pSale').value || document.getElementById('pPrice').value }]
-            };
-            products.push(newProduct);
-            localStorage.setItem('products', JSON.stringify(products));
-            alert('儲存成功！');
-            e.target.reset();
-            renderProducts();
-        };
-
-        // 顯示分頁
-        function showTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.getElementById(tabName + '-tab').classList.add('active');
-            if(tabName === 'list') renderProducts();
-            if(tabName === 'plan') renderPlanLists();
-        }
-
-        function renderProducts() {
-            const container = document.getElementById('productList');
-            container.innerHTML = products.map(p => `
-                <div class="bg-white p-4 rounded shadow border-l-4 border-blue-500">
-                    <div class="flex gap-4">
-                        <img src="${p.img || 'https://via.placeholder.com/80'}" class="w-20 h-20 object-cover rounded">
-                        <div class="flex-1">
-                            <h3 class="font-bold text-lg">${p.name} <span class="text-xs font-normal text-gray-400">(${p.sub})</span></h3>
-                            <p class="text-sm text-gray-500">規格: ${p.specs.join(', ')}</p>
-                            <div class="mt-2 text-sm">
-                                <span class="line-through text-gray-400">HK$${p.price}</span>
-                                <span class="text-red-500 font-bold ml-2">HK$${p.sale || p.price}</span>
-                            </div>
-                            ${p.sale ? `<p class="text-xs text-blue-500">特價期: ${p.saleRange[0]} ~ ${p.saleRange[1]}</p>` : ''}
-                            ${p.promo ? `<p class="text-xs text-orange-500 font-bold">★ 今日特優中</p>` : ''}
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <button onclick="addToPlan(${p.id})" class="bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs">加入清單</button>
-                            <button onclick="deleteProduct(${p.id})" class="text-red-400 text-xs">刪除</button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // 採購清單邏輯
-        function createNewList() {
-            const name = prompt("清單名稱：", "我的購物車");
-            if (name) {
-                planLists.push({ id: Date.now(), name: name, items: [] });
-                savePlans();
-                renderPlanLists();
+                saveProduct() {
+                    this.products.push({...this.form});
+                    this.persist();
+                    alert('商品已存入庫！');
+                    this.resetForm();
+                },
+                resetForm() {
+                    this.form = { name: '', link: '', img: '', mainCat: '', subCat: '', specs: [''], price: 0, promoPrice: 0, promoStart: '', promoEnd: '', hasCoupon: false, isSpecial: false };
+                },
+                deleteProduct(index) {
+                    if(confirm('確定刪除？')) {
+                        this.products.splice(index, 1);
+                        this.persist();
+                    }
+                },
+                addList() {
+                    this.shoppingLists.push({ name: '新清單 ' + (this.shoppingLists.length + 1), items: [] });
+                    this.persist();
+                },
+                addToPlan(product) {
+                    this.shoppingLists[0].items.push({...product, qty: 1});
+                    this.persist();
+                    alert('已加入第一份清單');
+                },
+                calculateTotal(list) {
+                    return list.items.reduce((sum, item) => sum + (item.qty * item.promoPrice), 0);
+                },
+                calculateTax() {
+                    const amount = parseInt(this.taxInput);
+                    const range = this.taxTable.find(r => amount >= r.min && amount <= r.max);
+                    this.taxResult = range ? range.refund : (amount >= 650000 ? '請諮詢櫃檯' : 0);
+                },
+                persist() {
+                    localStorage.setItem('products', JSON.stringify(this.products));
+                    localStorage.setItem('shoppingLists', JSON.stringify(this.shoppingLists));
+                }
             }
         }
-
-        function addToPlan(prodId) {
-            if (planLists.length === 0) { alert("請先建立一個採購清單"); return; }
-            const prod = products.find(p => p.id === prodId);
-            // 預設加入到第一個清單
-            planLists[0].items.push({ ...prod, count: 1, uniqueId: Date.now() });
-            savePlans();
-            alert("已加入第一個清單");
-        }
-
-        function renderPlanLists() {
-            const container = document.getElementById('shoppingLists');
-            container.innerHTML = planLists.map(list => {
-                let total = list.items.reduce((sum, item) => sum + (Number(item.sale || item.price) * item.count), 0);
-                return `
-                <div class="bg-white p-4 rounded-lg shadow-sm border">
-                    <div class="flex justify-between mb-2">
-                        <input type="text" value="${list.name}" onchange="renameList(${list.id}, this.value)" class="font-bold text-lg bg-transparent">
-                        <button onclick="deleteList(${list.id})" class="text-red-500 text-sm">刪除清單</button>
-                    </div>
-                    <div class="divide-y">
-                        ${list.items.map(item => `
-                            <div class="py-2 flex justify-between items-center text-sm">
-                                <span>${item.name} (HK$${item.sale || item.price})</span>
-                                <div class="flex items-center gap-2">
-                                    <input type="number" value="${item.count}" class="w-12 border rounded text-center" 
-                                        onchange="updateCount(${list.id}, ${item.uniqueId}, this.value)">
-                                    <button onclick="removeItem(${list.id}, ${item.uniqueId})" class="text-gray-400">✕</button>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="mt-4 pt-2 border-t text-right font-bold text-blue-600">
-                        總計: HK$${total}
-                    </div>
-                </div>
-            `}).join('');
-        }
-
-        function updateCount(listId, itemId, val) {
-            const list = planLists.find(l => l.id === listId);
-            const item = list.items.find(i => i.uniqueId === itemId);
-            item.count = parseInt(val) || 1;
-            savePlans();
-            renderPlanLists();
-        }
-
-        function deleteProduct(id) {
-            products = products.filter(p => p.id !== id);
-            localStorage.setItem('products', JSON.stringify(products));
-            renderProducts();
-        }
-
-        function savePlans() { localStorage.setItem('planLists', JSON.stringify(planLists)); }
-        
-        // 初始啟動
-        initCategoryPills();
     </script>
 </body>
 </html>

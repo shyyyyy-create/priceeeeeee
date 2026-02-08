@@ -1,316 +1,414 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartPrice 購物比價助手</title>
+    <title>美妝購物比價助手</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        [x-cloak] { display: none !important; }
-        .pill-active { @apply bg-blue-600 text-white shadow-lg; }
-        .pill-inactive { @apply bg-gray-100 text-gray-700 hover:bg-gray-200; }
+        .pill-active { @apply bg-indigo-600 text-white shadow-md; }
+        .pill-inactive { @apply bg-gray-100 text-gray-600 hover:bg-gray-200; }
+        [v-cloak] { display: none; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 font-sans" x-data="shopApp()">
-
-    <nav class="bg-white shadow-md sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="flex justify-between items-center h-16">
-                <span class="text-xl font-bold text-blue-600">SmartPrice</span>
-                <div class="flex space-x-2 overflow-x-auto">
-                    <button @click="view = 'add'" :class="view === 'add' ? 'text-blue-600 font-bold' : ''" class="px-3 py-2">商品登記</button>
-                    <button @click="view = 'list'" :class="view === 'list' ? 'text-blue-600 font-bold' : ''" class="px-3 py-2">已登記</button>
-                    <button @click="view = 'plan'" :class="view === 'plan' ? 'text-blue-600 font-bold' : ''" class="px-3 py-2">購買清單</button>
-                    <button @click="view = 'tax'" :class="view === 'tax' ? 'text-blue-600 font-bold' : ''" class="px-3 py-2">退稅計算</button>
-                </div>
+<body class="bg-slate-50 min-h-screen font-sans">
+    <div id="app" v-cloak class="max-w-4xl mx-auto pb-20">
+        
+        <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3 mb-6">
+            <div class="flex justify-around items-center overflow-x-auto no-scrollbar gap-2">
+                <button v-for="tab in tabs" :key="tab.id" 
+                    @click="currentTab = tab.id"
+                    :class="['px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap', 
+                    currentTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-gray-500 hover:bg-gray-100']">
+                    <i :class="['mr-1', tab.icon]"></i> {{ tab.name }}
+                </button>
             </div>
-        </div>
-    </nav>
+        </nav>
 
-    <main class="max-w-4xl mx-auto p-4 md:p-8">
-
-        <section x-show="view === 'add'" x-cloak class="space-y-6">
-            <h2 class="text-2xl font-bold border-l-4 border-blue-500 pl-3">新增商品登記</h2>
+        <main class="px-4">
             
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" x-model="form.name" placeholder="商品名稱" class="w-full border p-2 rounded">
-                    <input type="text" x-model="form.link" placeholder="商品連結 (URL)" class="w-full border p-2 rounded">
-                    <input type="text" x-model="form.img" placeholder="商品圖片連結" class="w-full border p-2 rounded">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium mb-2">主分類</label>
-                    <div class="flex flex-wrap gap-2">
-                        <template x-for="(sub, main) in categories" :key="main">
-                            <button @click="form.mainCat = main; form.subCat = ''" 
-                                    :class="form.mainCat === main ? 'bg-blue-600 text-white' : 'bg-gray-100'"
-                                    class="px-4 py-1.5 rounded-full text-sm transition" x-text="main"></button>
-                        </template>
+            <section v-if="currentTab === 'register'" class="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 border-l-4 border-indigo-500 pl-3">新增商品登記</h2>
+                
+                <div class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <label class="text-sm font-semibold text-gray-600">商品名稱</label>
+                            <input v-model="newProd.name" type="text" placeholder="例如：SK-II 神仙水" class="w-full border-gray-200 border rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-sm font-semibold text-gray-600">分類</label>
+                            <div class="flex flex-wrap gap-2">
+                                <button v-for="cat in categories" @click="newProd.category = cat" 
+                                    :class="['px-3 py-1 text-xs rounded-full border transition', newProd.category === cat ? 'bg-indigo-50 border-indigo-500 text-indigo-600' : 'border-gray-200 text-gray-500']">
+                                    {{ cat }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                <div x-show="form.mainCat">
-                    <label class="block text-sm font-medium mb-2">次分類</label>
-                    <div class="flex flex-wrap gap-2">
-                        <template x-for="item in categories[form.mainCat]" :key="item">
-                            <button @click="form.subCat = item" 
-                                    :class="form.subCat === item ? 'bg-green-600 text-white' : 'bg-gray-100'"
-                                    class="px-4 py-1.5 rounded-full text-sm transition" x-text="item"></button>
-                        </template>
+                    <div v-if="subCategories[newProd.category]" class="space-y-2">
+                        <label class="text-sm font-semibold text-gray-600">子分類</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button v-for="sub in subCategories[newProd.category]" @click="newProd.subCategory = sub"
+                                :class="['px-3 py-1 text-xs rounded-full border transition', newProd.subCategory === sub ? 'bg-pink-50 border-pink-500 text-pink-600' : 'border-gray-200 text-gray-500']">
+                                {{ sub }}
+                            </button>
+                        </div>
                     </div>
-                </div>
 
-                <div>
-                    <label class="block text-sm font-medium mb-2">商品規格</label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input v-model="newProd.link" placeholder="商品 URL" class="text-sm border-gray-200 border rounded-xl px-4 py-2">
+                        <input v-model="newProd.img" placeholder="圖片 URL" class="text-sm border-gray-200 border rounded-xl px-4 py-2">
+                    </div>
+
                     <div class="space-y-2">
-                        <template x-for="(spec, index) in form.specs" :key="index">
-                            <div class="flex gap-2">
-                                <input type="text" x-model="form.specs[index]" placeholder="規格內容 (例: 50ml, 紅色)" class="flex-1 border p-2 rounded">
-                                <button @click="form.specs.splice(index, 1)" class="text-red-500 px-2">✕</button>
+                        <div class="flex justify-between items-center">
+                            <label class="text-sm font-semibold text-gray-600">商品規格</label>
+                            <button @click="addSpec" class="text-indigo-600 text-xs font-bold">+ 增加規格</button>
+                        </div>
+                        <div v-for="(spec, index) in newProd.specs" :key="index" class="flex gap-2 mb-2">
+                            <input v-model="newProd.specs[index]" placeholder="規格 (如: 230ml)" class="flex-1 text-sm border-gray-200 border rounded-xl px-4 py-2">
+                            <button @click="removeSpec(index)" class="text-red-400 px-2"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                    </div>
+
+                    <hr class="border-gray-100">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-sm font-semibold text-gray-600">原價</label>
+                                <input v-model.number="newProd.originalPrice" type="number" class="w-full border-gray-200 border rounded-xl px-4 py-2">
                             </div>
-                        </template>
-                        <button @click="form.specs.push('')" class="text-blue-500 text-sm font-bold">+ 增加規格</button>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-500">原價</label>
-                        <input type="number" x-model="form.price" class="w-full border p-2 rounded">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-500">特價</label>
-                        <input type="number" x-model="form.promoPrice" class="w-full border p-2 rounded">
-                    </div>
-                    <div class="col-span-2 md:col-span-1 grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-xs text-gray-500">特價開始</label>
-                            <input type="date" x-model="form.promoStart" class="w-full border p-2 rounded text-xs">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-500">特價結束</label>
-                            <input type="date" x-model="form.promoEnd" class="w-full border p-2 rounded text-xs">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="border p-3 rounded-lg">
-                        <label class="flex items-center space-x-2 mb-2">
-                            <input type="checkbox" x-model="form.hasCoupon">
-                            <span class="font-bold">使用優惠券</span>
-                        </label>
-                        <div x-show="form.hasCoupon" class="space-y-2">
-                            <input type="number" x-model="form.couponPrice" placeholder="折後價格" class="w-full border p-1 rounded text-sm">
-                            <div class="flex gap-1">
-                                <input type="date" x-model="form.couponStart" class="w-1/2 border p-1 rounded text-xs">
-                                <input type="date" x-model="form.couponEnd" class="w-1/2 border p-1 rounded text-xs">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="border p-3 rounded-lg bg-yellow-50">
-                        <label class="flex items-center space-x-2 mb-2">
-                            <input type="checkbox" x-model="form.isSpecial">
-                            <span class="font-bold text-yellow-700 text-sm">🔥 今天特優 (1Day Only)</span>
-                        </label>
-                        <div x-show="form.isSpecial" class="space-y-2">
-                            <input type="number" x-model="form.specialPrice" placeholder="特優價格" class="w-full border p-1 rounded text-sm">
-                            <div class="flex gap-1">
-                                <input type="date" x-model="form.specialStart" class="w-1/2 border p-1 rounded text-xs">
-                                <input type="date" x-model="form.specialEnd" class="w-1/2 border p-1 rounded text-xs">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <button @click="saveProduct" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition">儲存商品</button>
-            </div>
-        </section>
-
-        <section x-show="view === 'list'" x-cloak class="space-y-6">
-            <h2 class="text-2xl font-bold border-l-4 border-green-500 pl-3">已登記商品庫</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <template x-for="(product, index) in products" :key="index">
-                    <div class="bg-white p-4 rounded-xl shadow-sm border flex gap-4">
-                        <img :src="product.img || 'https://via.placeholder.com/100'" class="w-24 h-24 object-cover rounded-lg border">
-                        <div class="flex-1">
-                            <div class="flex justify-between">
-                                <h3 class="font-bold text-lg" x-text="product.name"></h3>
-                                <div class="flex space-x-2">
-                                    <button @click="editProduct(index)" class="text-blue-500"><i class="fas fa-edit"></i></button>
-                                    <button @click="deleteProduct(index)" class="text-red-500"><i class="fas fa-trash"></i></button>
+                            <div class="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                                <label class="text-sm font-semibold text-orange-700">特價設定</label>
+                                <input v-model.number="newProd.salePrice" type="number" placeholder="特價金額" class="w-full mt-1 border-orange-200 border rounded-lg px-3 py-1.5 text-sm">
+                                <div class="grid grid-cols-2 gap-2 mt-2">
+                                    <input v-model="newProd.saleStart" type="date" class="text-xs border-orange-200 border rounded px-2 py-1">
+                                    <input v-model="newProd.saleEnd" type="date" class="text-xs border-orange-200 border rounded px-2 py-1">
                                 </div>
                             </div>
-                            <p class="text-xs text-gray-500" x-text="product.mainCat + ' > ' + product.subCat"></p>
-                            <div class="mt-2 text-sm">
-                                <div class="text-gray-400 line-through" x-text="'原價: ' + product.price"></div>
-                                <div class="text-red-500 font-bold" x-text="'特價: ' + product.promoPrice"></div>
-                                <div class="text-xs bg-gray-100 p-1 mt-1 rounded" x-text="'期限: ' + product.promoStart + ' ~ ' + product.promoEnd"></div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" v-model="newProd.hasCoupon" class="w-4 h-4 text-blue-600">
+                                    <span class="text-sm font-semibold text-blue-700">使用優惠券</span>
+                                </label>
+                                <div v-if="newProd.hasCoupon" class="mt-2 space-y-2">
+                                    <input v-model.number="newProd.couponPrice" type="number" placeholder="券後價格" class="w-full border-blue-200 border rounded-lg px-3 py-1.5 text-sm">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <input v-model="newProd.couponStart" type="date" class="text-xs border-blue-200 border rounded px-2 py-1">
+                                        <input v-model="newProd.couponEnd" type="date" class="text-xs border-blue-200 border rounded px-2 py-1">
+                                    </div>
+                                </div>
                             </div>
-                            <div class="mt-2 flex flex-wrap gap-1">
-                                <template x-for="s in product.specs">
-                                    <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded" x-text="s"></span>
-                                </template>
+
+                            <div class="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" v-model="newProd.isTodaySpecial" class="w-4 h-4 text-purple-600">
+                                    <span class="text-sm font-semibold text-purple-700">今天特優</span>
+                                </label>
+                                <div v-if="newProd.isTodaySpecial" class="mt-2 space-y-2">
+                                    <input v-model.number="newProd.todayPrice" type="number" placeholder="特優價格" class="w-full border-purple-200 border rounded-lg px-3 py-1.5 text-sm">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <input v-model="newProd.todayStart" type="date" class="text-xs border-purple-200 border rounded px-2 py-1">
+                                        <input v-model="newProd.todayEnd" type="date" class="text-xs border-purple-200 border rounded px-2 py-1">
+                                    </div>
+                                </div>
                             </div>
-                            <button @click="addToPlan(product)" class="mt-3 w-full border border-blue-600 text-blue-600 py-1 rounded text-sm hover:bg-blue-50">+ 加入清單</button>
                         </div>
                     </div>
-                </template>
-            </div>
-        </section>
 
-        <section x-show="view === 'plan'" x-cloak class="space-y-6">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold border-l-4 border-purple-500 pl-3">購買清單</h2>
-                <button @click="addList" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm">+ 新增清單</button>
-            </div>
-
-            <template x-for="(list, lIndex) in shoppingLists" :key="lIndex">
-                <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-                    <div class="flex justify-between mb-4">
-                        <input type="text" x-model="list.name" class="text-xl font-bold border-b border-dashed focus:border-purple-500 outline-none">
-                        <button @click="shoppingLists.splice(lIndex, 1)" class="text-red-400">刪除清單</button>
-                    </div>
-                    <table class="w-full text-left">
-                        <thead class="bg-gray-50 text-xs">
-                            <tr>
-                                <th class="p-2">商品</th>
-                                <th class="p-2 text-center">數量</th>
-                                <th class="p-2 text-right">小計</th>
-                                <th class="p-2"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template x-for="(item, iIndex) in list.items" :key="iIndex">
-                                <tr class="border-b">
-                                    <td class="p-2">
-                                        <div class="font-medium" x-text="item.name"></div>
-                                        <div class="text-[10px] text-gray-400" x-text="item.price"></div>
-                                    </td>
-                                    <td class="p-2 text-center">
-                                        <input type="number" x-model="item.qty" class="w-12 border rounded text-center">
-                                    </td>
-                                    <td class="p-2 text-right font-bold" x-text="item.qty * item.promoPrice"></td>
-                                    <td class="p-2 text-right">
-                                        <button @click="list.items.splice(iIndex, 1)" class="text-gray-400 hover:text-red-500">✕</button>
-                                    </td>
-                                </tr>
-                            </template>
-                        </tbody>
-                    </table>
-                    <div class="mt-4 text-right">
-                        <span class="text-gray-500">總計：</span>
-                        <span class="text-2xl font-bold text-purple-600" x-text="calculateTotal(list)"></span>
-                    </div>
+                    <button @click="saveProduct" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition">
+                        儲存商品
+                    </button>
                 </div>
-            </template>
-        </section>
+            </section>
 
-        <section x-show="view === 'tax'" x-cloak class="space-y-6">
-            <h2 class="text-2xl font-bold border-l-4 border-orange-500 pl-3">韓國退稅快速查詢 (2024+版)</h2>
-            <div class="bg-white p-6 rounded-xl shadow-sm border">
-                <label class="block mb-2">輸入消費金額 (KRW)</label>
-                <input type="number" x-model="taxInput" @input="calculateTax" placeholder="例如: 35000" class="w-full border-2 border-orange-200 p-3 rounded-xl text-xl font-bold mb-4">
-                
-                <div class="bg-orange-50 p-6 rounded-xl text-center">
-                    <p class="text-gray-600">預計可獲退稅額：</p>
-                    <p class="text-4xl font-black text-orange-600" x-text="taxResult + ' KRW'"></p>
+            <section v-if="currentTab === 'list'" class="space-y-4">
+                <div class="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm mb-4">
+                    <input v-model="searchQuery" type="text" placeholder="搜尋商品名稱..." class="text-sm bg-gray-50 border-none rounded-lg px-4 py-2 w-full">
                 </div>
 
-                <div class="mt-8">
-                    <h3 class="font-bold mb-4">對照表</h3>
-                    <div class="grid grid-cols-2 gap-2 text-sm h-64 overflow-y-auto border-t pt-4">
-                        <template x-for="row in taxTable">
-                            <div class="flex justify-between border-b pb-1">
-                                <span x-text="row.min + ' ~ ' + row.max"></span>
-                                <span class="font-bold text-orange-600" x-text="row.refund"></span>
+                <div v-for="p in filteredProducts" :key="p.id" class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex gap-4">
+                    <img :src="p.img || 'https://via.placeholder.com/100'" class="w-24 h-24 object-cover rounded-xl bg-gray-50">
+                    <div class="flex-1">
+                        <div class="flex justify-between">
+                            <h3 class="font-bold text-gray-800">{{ p.name }}</h3>
+                            <div class="space-x-2">
+                                <button @click="editProduct(p)" class="text-blue-500 text-sm"><i class="fas fa-edit"></i></button>
+                                <button @click="deleteProduct(p.id)" class="text-red-400 text-sm"><i class="fas fa-trash"></i></button>
                             </div>
-                        </template>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">{{ p.category }} > {{ p.subCategory }}</p>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                            <span v-for="s in p.specs" class="bg-gray-100 text-[10px] px-2 py-0.5 rounded text-gray-500">{{ s }}</span>
+                        </div>
+                        <div class="mt-2 flex items-baseline gap-2">
+                            <span class="text-indigo-600 font-bold">₩{{ getBestPrice(p) }}</span>
+                            <span class="text-xs text-gray-400 line-through">₩{{ p.originalPrice }}</span>
+                        </div>
+                        <div class="text-[10px] text-orange-500 mt-1" v-if="p.saleEnd">
+                            優惠期至: {{ p.saleEnd }}
+                        </div>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
-    </main>
+            <section v-if="currentTab === 'plan'" class="space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold">我的購物清單</h2>
+                    <button @click="createNewList" class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full text-xs font-bold">+ 新清單</button>
+                </div>
+
+                <div v-for="(list, lIdx) in planLists" :key="lIdx" class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center mb-4">
+                        <input v-model="list.name" class="font-bold text-lg border-b-2 border-transparent focus:border-indigo-200 outline-none">
+                        <button @click="removeList(lIdx)" class="text-gray-300 hover:text-red-500"><i class="fas fa-times-circle"></i></button>
+                    </div>
+
+                    <div v-for="(item, iIdx) in list.items" :key="iIdx" class="flex items-center gap-3 py-3 border-b border-gray-50 last:border-0">
+                        <div class="flex-1">
+                            <p class="font-medium text-gray-700">{{ item.name }}</p>
+                            <p class="text-xs text-gray-400">₩{{ item.price }} / {{ item.spec }}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input v-model.number="item.qty" type="number" class="w-12 text-center bg-gray-50 rounded border text-sm">
+                            <button @click="list.items.splice(iIdx, 1)" class="text-red-300"><i class="fas fa-minus-circle"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-dashed border-gray-200 flex justify-between items-center">
+                        <span class="text-gray-500 font-medium">總計額：</span>
+                        <span class="text-xl font-bold text-indigo-600">₩{{ calculateListTotal(list) }}</span>
+                    </div>
+                </div>
+            </section>
+
+            <section v-if="currentTab === 'tax'" class="bg-white rounded-2xl shadow-sm p-6">
+                <h2 class="text-xl font-bold mb-4">韓國退稅額對照表</h2>
+                <div class="grid grid-cols-1 gap-1 h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                    <div v-for="t in taxTable" class="flex justify-between py-2 px-4 rounded-lg bg-gray-50 mb-1 text-sm">
+                        <span class="text-gray-600">{{ t.min.toLocaleString() }} ~ {{ t.max ? t.max.toLocaleString() : '以上' }}</span>
+                        <span class="font-bold text-indigo-600">₩{{ t.refund.toLocaleString() }}</span>
+                    </div>
+                </div>
+            </section>
+
+            <section v-if="currentTab === 'calc'" class="space-y-4">
+                <div class="bg-indigo-600 rounded-2xl p-6 text-white shadow-lg">
+                    <p class="text-indigo-100 text-sm">速算總金額 (含退稅)</p>
+                    <div class="text-3xl font-bold mt-1">₩{{ (calcTotal - currentRefund).toLocaleString() }}</div>
+                    <div class="flex justify-between mt-4 text-xs opacity-80">
+                        <span>總計: ₩{{ calcTotal.toLocaleString() }}</span>
+                        <span>退稅額: -₩{{ currentRefund.toLocaleString() }}</span>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <input v-model="calcSearch" placeholder="搜尋已登記商品加入..." class="w-full rounded-xl px-4 py-3 shadow-sm border-none">
+                    <div v-if="calcSearch && searchResults.length" class="absolute z-10 w-full bg-white mt-1 shadow-xl rounded-xl border border-gray-100 max-h-60 overflow-y-auto">
+                        <div v-for="p in searchResults" @click="addToCalc(p)" class="p-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-50 last:border-0">
+                            <p class="font-bold text-sm">{{ p.name }}</p>
+                            <p class="text-[10px] text-gray-400">₩{{ getBestPrice(p) }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-4 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold">計算清單</h3>
+                        <button @click="addManualToCalc" class="text-xs bg-gray-100 px-3 py-1 rounded-full">+ 手動新增項目</button>
+                    </div>
+                    <div v-for="(item, idx) in calcList" :key="idx" class="flex items-center gap-3 py-3 border-b border-gray-50 last:border-0">
+                        <div class="flex-1">
+                            <input v-model="item.name" class="font-medium text-gray-700 w-full bg-transparent border-none focus:ring-0 p-0">
+                            <div class="flex gap-2 mt-1">
+                                <input v-model.number="item.price" type="number" class="text-xs text-indigo-600 bg-gray-50 px-2 py-0.5 rounded w-20">
+                                <select v-if="item.specs" v-model="item.selectedSpec" class="text-[10px] bg-gray-50 border-none rounded">
+                                    <option v-for="s in item.specs" :value="s">{{ s }}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input v-model.number="item.qty" type="number" class="w-10 text-center text-sm font-bold">
+                            <button @click="calcList.splice(idx, 1)" class="text-red-300"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
 
     <script>
-        function shopApp() {
-            return {
-                view: 'add',
-                taxInput: 0,
-                taxResult: 0,
-                form: {
-                    name: '', link: '', img: '', mainCat: '', subCat: '',
-                    specs: [''], price: 0, promoPrice: 0, promoStart: '', promoEnd: '',
-                    hasCoupon: false, couponPrice: 0, couponStart: '', couponEnd: '',
-                    isSpecial: false, specialPrice: 0, specialStart: '', specialEnd: ''
-                },
-                categories: {
+        const { createApp, ref, reactive, computed, watch } = Vue;
+
+        createApp({
+            setup() {
+                const currentTab = ref('register');
+                const searchQuery = ref('');
+                const calcSearch = ref('');
+                
+                const tabs = [
+                    { id: 'register', name: '登記', icon: 'fas fa-plus-circle' },
+                    { id: 'list', name: '已登記', icon: 'fas fa-th-list' },
+                    { id: 'plan', name: '計劃', icon: 'fas fa-shopping-basket' },
+                    { id: 'calc', name: '速算', icon: 'fas fa-calculator' },
+                    { id: 'tax', name: '退稅', icon: 'fas fa-receipt' }
+                ];
+
+                const categories = ['護膚品', '化妝品Base', '化妝品Eyes', '化妝品Lip', '其他'];
+                const subCategories = {
                     '護膚品': ['化妝水', '精華', '乳液/面霜', '防曬', '潔面', '卸妝'],
                     '化妝品Base': ['妝前', '氣墊', '粉底', '遮瑕', '腮紅', '光/陰影'],
                     '化妝品Eyes': ['眉筆', '眼線/臥蠶', '眼影', '睫毛膏'],
                     '化妝品Lip': ['唇線筆', '唇釉', '唇膏'],
                     '其他': ['手部膚理', '身體護理', '香水', '零食', '生活雜貨']
-                },
-                products: JSON.parse(localStorage.getItem('products') || '[]'),
-                shoppingLists: JSON.parse(localStorage.getItem('shoppingLists') || '[{"name":"預設清單","items":[]}]'),
-                
-                taxTable: [
-                    {min: 15000, max: 29999, refund: 1000}, {min: 30000, max: 49999, refund: 2000},
-                    {min: 50000, max: 74999, refund: 3000}, {min: 75000, max: 99999, refund: 5000},
-                    {min: 100000, max: 124999, refund: 7000}, {min: 125000, max: 149999, refund: 8000},
-                    {min: 150000, max: 174999, refund: 9000}, {min: 175000, max: 199999, refund: 10000},
-                    {min: 200000, max: 224999, refund: 12000}, {min: 225000, max: 249999, refund: 13000},
-                    {min: 250000, max: 274999, refund: 15000}, {min: 275000, max: 299999, refund: 17000},
-                    {min: 300000, max: 324999, refund: 19000}, {min: 325000, max: 349999, refund: 21000},
-                    {min: 350000, max: 374999, refund: 23000}, {min: 375000, max: 399999, refund: 25000},
-                    {min: 400000, max: 424999, refund: 27000}, {min: 425000, max: 449999, refund: 28000},
-                    {min: 450000, max: 474999, refund: 30000}, {min: 475000, max: 499999, refund: 32000},
-                    {min: 500000, max: 549999, refund: 35000}, {min: 550000, max: 599999, refund: 37000},
-                    {min: 600000, max: 649999, refund: 41000}
-                ],
+                };
 
-                saveProduct() {
-                    this.products.push({...this.form});
-                    this.persist();
-                    alert('商品已存入庫！');
-                    this.resetForm();
-                },
-                resetForm() {
-                    this.form = { name: '', link: '', img: '', mainCat: '', subCat: '', specs: [''], price: 0, promoPrice: 0, promoStart: '', promoEnd: '', hasCoupon: false, isSpecial: false };
-                },
-                deleteProduct(index) {
+                const taxTable = [
+                    {min: 15000, max: 29999, refund: 1000},
+                    {min: 30000, max: 49999, refund: 2000},
+                    {min: 50000, max: 74999, refund: 3000},
+                    {min: 75000, max: 99999, refund: 5000},
+                    {min: 100000, max: 124999, refund: 7000},
+                    {min: 125000, max: 149999, refund: 8000},
+                    {min: 150000, max: 174999, refund: 9000},
+                    {min: 175000, max: 199999, refund: 10000},
+                    {min: 200000, max: 224999, refund: 12000},
+                    {min: 225000, max: 249999, refund: 13000},
+                    {min: 250000, max: 274999, refund: 15000},
+                    {min: 275000, max: 299999, refund: 17000},
+                    {min: 300000, max: 324999, refund: 19000},
+                    {min: 325000, max: 349999, refund: 21000},
+                    {min: 350000, max: 374999, refund: 23000},
+                    {min: 375000, max: 399999, refund: 25000},
+                    {min: 400000, max: 424999, refund: 27000},
+                    {min: 425000, max: 449999, refund: 28000},
+                    {min: 450000, max: 474999, refund: 30000},
+                    {min: 475000, max: 499999, refund: 32000},
+                    {min: 500000, max: 549999, refund: 35000},
+                    {min: 550000, max: 599999, refund: 37000},
+                    {min: 600000, max: 649999, refund: 41000},
+                ];
+
+                // 資料持久化
+                const products = ref(JSON.parse(localStorage.getItem('products') || '[]'));
+                const planLists = ref(JSON.parse(localStorage.getItem('planLists') || '[{"name": "首爾行程清單", "items": []}]'));
+                const calcList = ref([]);
+
+                const newProd = reactive({
+                    id: null, name: '', category: '護膚品', subCategory: '', link: '', img: '',
+                    specs: [''], originalPrice: 0, salePrice: null, saleStart: '', saleEnd: '',
+                    hasCoupon: false, couponPrice: null, couponStart: '', couponEnd: '',
+                    isTodaySpecial: false, todayPrice: null, todayStart: '', todayEnd: ''
+                });
+
+                // 方法
+                const addSpec = () => newProd.specs.push('');
+                const removeSpec = (idx) => newProd.specs.splice(idx, 1);
+
+                const saveProduct = () => {
+                    if(!newProd.name) return alert('請輸入商品名稱');
+                    const data = {...newProd, id: newProd.id || Date.now()};
+                    const idx = products.value.findIndex(p => p.id === data.id);
+                    if(idx > -1) products.value[idx] = data;
+                    else products.value.push(data);
+                    
+                    localStorage.setItem('products', JSON.stringify(products.value));
+                    resetNewProd();
+                    currentTab.value = 'list';
+                };
+
+                const resetNewProd = () => {
+                    Object.assign(newProd, {
+                        id: null, name: '', category: '護膚品', subCategory: '', link: '', img: '',
+                        specs: [''], originalPrice: 0, salePrice: null, saleStart: '', saleEnd: '',
+                        hasCoupon: false, couponPrice: null, couponStart: '', couponEnd: '',
+                        isTodaySpecial: false, todayPrice: null, todayStart: '', todayEnd: ''
+                    });
+                };
+
+                const getBestPrice = (p) => {
+                    let prices = [p.originalPrice];
+                    if(p.salePrice) prices.push(p.salePrice);
+                    if(p.hasCoupon && p.couponPrice) prices.push(p.couponPrice);
+                    if(p.isTodaySpecial && p.todayPrice) prices.push(p.todayPrice);
+                    return Math.min(...prices);
+                };
+
+                const filteredProducts = computed(() => {
+                    return products.value.filter(p => p.name.toLowerCase().includes(searchQuery.value.toLowerCase()));
+                });
+
+                const deleteProduct = (id) => {
                     if(confirm('確定刪除？')) {
-                        this.products.splice(index, 1);
-                        this.persist();
+                        products.value = products.value.filter(p => p.id !== id);
+                        localStorage.setItem('products', JSON.stringify(products.value));
                     }
-                },
-                addList() {
-                    this.shoppingLists.push({ name: '新清單 ' + (this.shoppingLists.length + 1), items: [] });
-                    this.persist();
-                },
-                addToPlan(product) {
-                    this.shoppingLists[0].items.push({...product, qty: 1});
-                    this.persist();
-                    alert('已加入第一份清單');
-                },
-                calculateTotal(list) {
-                    return list.items.reduce((sum, item) => sum + (item.qty * item.promoPrice), 0);
-                },
-                calculateTax() {
-                    const amount = parseInt(this.taxInput);
-                    const range = this.taxTable.find(r => amount >= r.min && amount <= r.max);
-                    this.taxResult = range ? range.refund : (amount >= 650000 ? '請諮詢櫃檯' : 0);
-                },
-                persist() {
-                    localStorage.setItem('products', JSON.stringify(this.products));
-                    localStorage.setItem('shoppingLists', JSON.stringify(this.shoppingLists));
-                }
+                };
+
+                const editProduct = (p) => {
+                    Object.assign(newProd, JSON.parse(JSON.stringify(p)));
+                    currentTab.value = 'register';
+                };
+
+                const createNewList = () => {
+                    planLists.value.push({name: '新清單', items: []});
+                };
+
+                const calculateListTotal = (list) => {
+                    return list.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                };
+
+                const searchResults = computed(() => {
+                    if(!calcSearch.value) return [];
+                    return products.value.filter(p => p.name.toLowerCase().includes(calcSearch.value.toLowerCase()));
+                });
+
+                const addToCalc = (p) => {
+                    calcList.value.push({
+                        name: p.name,
+                        price: getBestPrice(p),
+                        qty: 1,
+                        specs: p.specs,
+                        selectedSpec: p.specs[0]
+                    });
+                    calcSearch.value = '';
+                };
+
+                const addManualToCalc = () => {
+                    calcList.value.push({ name: '新項目', price: 0, qty: 1 });
+                };
+
+                const calcTotal = computed(() => {
+                    return calcList.value.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                });
+
+                const currentRefund = computed(() => {
+                    const total = calcTotal.value;
+                    const tier = [...taxTable].reverse().find(t => total >= t.min);
+                    return tier ? tier.refund : 0;
+                });
+
+                // 監聽存檔
+                watch(planLists, (val) => localStorage.setItem('planLists', JSON.stringify(val)), {deep: true});
+
+                return {
+                    currentTab, tabs, categories, subCategories, newProd, products, 
+                    searchQuery, filteredProducts, planLists, taxTable,
+                    calcSearch, searchResults, calcList, calcTotal, currentRefund,
+                    addSpec, removeSpec, saveProduct, deleteProduct, editProduct, getBestPrice,
+                    createNewList, calculateListTotal, addToCalc, addManualToCalc
+                };
             }
-        }
+        }).mount('#app');
     </script>
 </body>
 </html>

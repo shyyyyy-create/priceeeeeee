@@ -3,109 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>商品比價管理系統</title>
+    <title>商品比價追蹤器</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .hidden { display: none; }
-        .card { transition: transform 0.2s; }
-        .card:hover { transform: translateY(-5px); }
+        .pill-active { @apply bg-blue-600 text-white border-blue-600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen p-4 md:p-8">
+<body class="bg-gray-50 min-h-screen">
 
-    <div class="max-w-6xl mx-auto">
-        <header class="mb-8 text-center">
-            <h1 class="text-3xl font-bold text-gray-800">🛍️ 商品比價管理助手</h1>
-            <p class="text-gray-500">記錄價格、優惠期與規格</p>
-        </header>
+    <nav class="bg-white shadow-md p-4 sticky top-0 z-10">
+        <div class="max-w-4xl mx-auto flex justify-around">
+            <button onclick="showTab('add')" class="font-bold text-blue-600">登記商品</button>
+            <button onclick="showTab('list')" class="font-bold text-gray-600">已登記商品</button>
+            <button onclick="showTab('plan')" class="font-bold text-gray-600">採購清單</button>
+        </div>
+    </nav>
 
-        <section class="bg-white p-6 rounded-xl shadow-md mb-10">
-            <h2 class="text-xl font-semibold mb-4 border-b pb-2" id="formTitle">新增商品登記</h2>
-            <form id="productForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input type="hidden" id="editIndex" value="-1">
-                
+    <main class="max-w-4xl mx-auto p-4 pb-24">
+        
+        <section id="add-tab" class="tab-content active">
+            <h2 class="text-xl font-bold mb-4">新商品登記</h2>
+            <form id="productForm" class="space-y-4 bg-white p-6 rounded-lg shadow">
                 <div>
                     <label class="block text-sm font-medium">商品名稱</label>
                     <input type="text" id="pName" required class="w-full border p-2 rounded">
                 </div>
-                <div>
-                    <label class="block text-sm font-medium">商品分類</label>
-                    <select id="pCategory" class="w-full border p-2 rounded" onchange="updateSubCategory()">
-                        <option value="護膚品">護膚品</option>
-                        <option value="化妝品Base">化妝品Base</option>
-                        <option value="化妝品Eyes">化妝品Eyes</option>
-                        <option value="化妝品Lip">化妝品Lip</option>
-                        <option value="其他">其他</option>
-                    </select>
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="url" id="pLink" placeholder="商品連結" class="border p-2 rounded">
+                    <input type="url" id="pImg" placeholder="圖片連結" class="border p-2 rounded">
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium">子分類</label>
-                    <select id="pSubCategory" class="w-full border p-2 rounded"></select>
+                    <label class="block text-sm font-medium mb-2">商品分類</label>
+                    <div id="categoryPills" class="flex flex-wrap gap-2">
+                        </div>
+                    <div id="subCategoryPills" class="flex flex-wrap gap-2 mt-2"></div>
                 </div>
+
                 <div>
-                    <label class="block text-sm font-medium">商品連結 (URL)</label>
-                    <input type="url" id="pLink" class="w-full border p-2 rounded">
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium">圖片連結 (URL)</label>
-                    <input type="url" id="pImg" class="w-full border p-2 rounded">
+                    <label class="block text-sm font-medium mb-1">商品規格</label>
+                    <div id="specsContainer" class="space-y-2">
+                        <input type="text" class="spec-input w-full border p-2 rounded" placeholder="規格 (如: 50ml, 色號01)">
+                    </div>
+                    <button type="button" onclick="addSpecField()" class="mt-2 text-sm text-blue-500">+ 增加規格</button>
                 </div>
 
-                <div class="md:col-span-2 border-t pt-4">
-                    <label class="block text-sm font-medium mb-2">商品規格 (無上限增加)</label>
-                    <div id="specsContainer" class="space-y-2 mb-2">
-                        <div class="flex gap-2">
-                            <input type="text" placeholder="規格 (如: 50ml, 色號01)" class="spec-input flex-1 border p-2 rounded">
-                            <button type="button" onclick="addSpecField()" class="bg-blue-500 text-white px-3 rounded">+</button>
-                        </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium">原價</label>
+                        <input type="number" id="pPrice" class="w-full border p-2 rounded">
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium">特價</label>
+                        <input type="number" id="pSale" class="w-full border p-2 rounded">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <input type="date" id="saleStart" title="特價開始">
+                    <input type="date" id="saleEnd" title="特價結束">
                 </div>
 
-                <div class="border-t pt-4">
-                    <label class="block text-sm font-medium text-gray-400">商品原價</label>
-                    <input type="number" id="pPrice" required class="w-full border p-2 rounded">
+                <div class="flex gap-4 p-2 bg-gray-100 rounded">
+                    <label><input type="checkbox" id="couponCheck"> 優惠券</label>
+                    <label><input type="checkbox" id="promoCheck"> 今天特優</label>
                 </div>
-                <div class="border-t pt-4">
-                    <label class="block text-sm font-medium text-red-500">商品特價</label>
-                    <input type="number" id="pSalePrice" class="w-full border p-2 rounded">
-                    <div class="grid grid-cols-2 gap-2 mt-2">
-                        <input type="date" id="saleStart" class="text-xs border p-1 rounded">
-                        <input type="date" id="saleEnd" class="text-xs border p-1 rounded">
-                    </div>
+                <div id="promoDates" class="hidden grid grid-cols-2 gap-4 text-sm">
+                    <input type="date" id="promoStart" title="優惠開始">
+                    <input type="date" id="promoEnd" title="優惠結束">
                 </div>
 
-                <div class="md:col-span-2 flex flex-wrap gap-6 bg-yellow-50 p-4 rounded-lg">
-                    <div class="flex items-center gap-2">
-                        <input type="checkbox" id="couponCheck" onchange="toggleDate('couponDates')">
-                        <label for="couponCheck" class="font-bold">🎫 優惠券</label>
-                        <div id="couponDates" class="hidden flex gap-2 ml-2">
-                            <input type="date" id="couponStart" class="text-xs border p-1 rounded">
-                            <input type="date" id="couponEnd" class="text-xs border p-1 rounded">
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <input type="checkbox" id="todaySpecialCheck" onchange="toggleDate('specialDates')">
-                        <label for="todaySpecialCheck" class="font-bold text-orange-600">🔥 今天特優</label>
-                        <div id="specialDates" class="hidden flex gap-2 ml-2">
-                            <input type="date" id="specialStart" class="text-xs border p-1 rounded">
-                            <input type="date" id="specialEnd" class="text-xs border p-1 rounded">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="md:col-span-2">
-                    <button type="submit" class="w-full bg-black text-white py-3 rounded-lg font-bold hover:bg-gray-800">保存商品資料</button>
-                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded font-bold">儲存商品</button>
             </form>
         </section>
 
-        <h2 class="text-2xl font-bold mb-4">我的商品清單</h2>
-        <div id="productList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <section id="list-tab" class="tab-content">
+            <h2 class="text-xl font-bold mb-4">所有商品</h2>
+            <div id="productList" class="grid gap-4">
+                </div>
+        </section>
+
+        <section id="plan-tab" class="tab-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">採購清單</h2>
+                <button onclick="createNewList()" class="bg-green-500 text-white px-3 py-1 rounded text-sm">+ 新清單</button>
             </div>
-    </div>
+            <div id="shoppingLists" class="space-y-6">
+                </div>
+        </section>
+
+    </main>
 
     <script>
+        // 資料結構定義
         const categories = {
             "護膚品": ["化妝水", "精華", "乳液/面霜", "防曬", "潔面", "卸妝"],
             "化妝品Base": ["妝前", "氣墊", "粉底", "遮瑕", "腮紅", "光/陰影"],
@@ -114,121 +105,183 @@
             "其他": ["手部膚理", "身體護理", "香水", "零食", "生活雜貨"]
         };
 
-        let products = JSON.parse(localStorage.getItem('priceTracker')) || [];
+        let currentCategory = "";
+        let currentSub = "";
+        let products = JSON.parse(localStorage.getItem('products') || '[]');
+        let planLists = JSON.parse(localStorage.getItem('planLists') || '[]');
 
-        function updateSubCategory() {
-            const main = document.getElementById('pCategory').value;
-            const sub = document.getElementById('pSubCategory');
-            sub.innerHTML = categories[main].map(s => `<option value="${s}">${s}</option>`).join('');
+        // 初始化：渲染分類藥丸
+        function initCategoryPills() {
+            const container = document.getElementById('categoryPills');
+            Object.keys(categories).forEach(cat => {
+                const btn = document.createElement('button');
+                btn.type = "button";
+                btn.className = "px-4 py-1 border rounded-full text-sm";
+                btn.innerText = cat;
+                btn.onclick = () => selectCategory(cat, btn);
+                container.appendChild(btn);
+            });
         }
 
-        function addSpecField(value = "") {
-            const div = document.createElement('div');
-            div.className = "flex gap-2 mt-2";
-            div.innerHTML = `<input type="text" value="${value}" class="spec-input flex-1 border p-2 rounded">
-                             <button type="button" onclick="this.parentElement.remove()" class="bg-red-400 text-white px-3 rounded">✕</button>`;
-            document.getElementById('specsContainer').appendChild(div);
-        }
-
-        function toggleDate(id) {
-            document.getElementById(id).classList.toggle('hidden');
-        }
-
-        document.getElementById('productForm').onsubmit = function(e) {
-            e.preventDefault();
-            const editIndex = parseInt(document.getElementById('editIndex').value);
+        function selectCategory(cat, btn) {
+            currentCategory = cat;
+            document.querySelectorAll('#categoryPills button').forEach(b => b.classList.remove('pill-active'));
+            btn.classList.add('pill-active');
             
-            const specs = Array.from(document.querySelectorAll('.spec-input')).map(input => input.value).filter(v => v);
-            
-            const product = {
-                name: document.getElementById('pName').value,
-                category: document.getElementById('pCategory').value,
-                subCategory: document.getElementById('pSubCategory').value,
-                link: document.getElementById('pLink').value,
-                img: document.getElementById('pImg').value || 'https://via.placeholder.com/150',
-                specs: specs,
-                price: document.getElementById('pPrice').value,
-                salePrice: document.getElementById('pSalePrice').value,
-                salePeriod: [document.getElementById('saleStart').value, document.getElementById('saleEnd').value],
-                coupon: { active: document.getElementById('couponCheck').checked, period: [document.getElementById('couponStart').value, document.getElementById('couponEnd').value] },
-                special: { active: document.getElementById('todaySpecialCheck').checked, period: [document.getElementById('specialStart').value, document.getElementById('specialEnd').value] },
-                history: editIndex > -1 ? products[editIndex].history : []
-            };
+            const subContainer = document.getElementById('subCategoryPills');
+            subContainer.innerHTML = "";
+            categories[cat].forEach(sub => {
+                const sBtn = document.createElement('button');
+                sBtn.type = "button";
+                sBtn.className = "px-3 py-1 border border-dashed rounded-full text-xs";
+                sBtn.innerText = sub;
+                sBtn.onclick = () => {
+                    currentSub = sub;
+                    document.querySelectorAll('#subCategoryPills button').forEach(b => b.classList.remove('pill-active'));
+                    sBtn.classList.add('pill-active');
+                };
+                subContainer.appendChild(sBtn);
+            });
+        }
 
-            // 記錄價格歷史
-            product.history.push({ date: new Date().toLocaleDateString(), price: product.salePrice || product.price });
+        function addSpecField() {
+            const input = document.createElement('input');
+            input.className = "spec-input w-full border p-2 rounded";
+            input.placeholder = "規格";
+            document.getElementById('specsContainer').appendChild(input);
+        }
 
-            if (editIndex > -1) products[editIndex] = product;
-            else products.push(product);
-
-            localStorage.setItem('priceTracker', JSON.stringify(products));
-            this.reset();
-            renderProducts();
-            location.reload(); // 重新整理清單
+        // 切換顯示優惠日期
+        document.getElementById('promoCheck').onchange = (e) => {
+            document.getElementById('promoDates').style.display = e.target.checked ? 'grid' : 'none';
         };
 
+        // 儲存商品
+        document.getElementById('productForm').onsubmit = (e) => {
+            e.preventDefault();
+            const specs = Array.from(document.querySelectorAll('.spec-input')).map(i => i.value).filter(v => v);
+            const newProduct = {
+                id: Date.now(),
+                name: document.getElementById('pName').value,
+                link: document.getElementById('pLink').value,
+                img: document.getElementById('pImg').value,
+                cat: currentCategory,
+                sub: currentSub,
+                specs: specs,
+                price: document.getElementById('pPrice').value,
+                sale: document.getElementById('pSale').value,
+                saleRange: [document.getElementById('saleStart').value, document.getElementById('saleEnd').value],
+                coupon: document.getElementById('couponCheck').checked,
+                promo: document.getElementById('promoCheck').checked,
+                promoRange: [document.getElementById('promoStart').value, document.getElementById('promoEnd').value],
+                history: [{ date: new Date().toLocaleDateString(), price: document.getElementById('pSale').value || document.getElementById('pPrice').value }]
+            };
+            products.push(newProduct);
+            localStorage.setItem('products', JSON.stringify(products));
+            alert('儲存成功！');
+            e.target.reset();
+            renderProducts();
+        };
+
+        // 顯示分頁
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById(tabName + '-tab').classList.add('active');
+            if(tabName === 'list') renderProducts();
+            if(tabName === 'plan') renderPlanLists();
+        }
+
         function renderProducts() {
-            const list = document.getElementById('productList');
-            list.innerHTML = products.map((p, index) => `
-                <div class="card bg-white rounded-xl shadow overflow-hidden border">
-                    <img src="${p.img}" class="w-full h-48 object-cover">
-                    <div class="p-4">
-                        <span class="text-xs bg-gray-200 px-2 py-1 rounded">${p.category} - ${p.subCategory}</span>
-                        <h3 class="font-bold text-lg mt-1">${p.name}</h3>
-                        <p class="text-sm text-gray-500">規格: ${p.specs.join(', ')}</p>
-                        
-                        <div class="mt-3">
-                            <span class="line-through text-gray-400">$${p.price}</span>
-                            <span class="text-xl font-bold text-red-500 ml-2">$${p.salePrice || p.price}</span>
+            const container = document.getElementById('productList');
+            container.innerHTML = products.map(p => `
+                <div class="bg-white p-4 rounded shadow border-l-4 border-blue-500">
+                    <div class="flex gap-4">
+                        <img src="${p.img || 'https://via.placeholder.com/80'}" class="w-20 h-20 object-cover rounded">
+                        <div class="flex-1">
+                            <h3 class="font-bold text-lg">${p.name} <span class="text-xs font-normal text-gray-400">(${p.sub})</span></h3>
+                            <p class="text-sm text-gray-500">規格: ${p.specs.join(', ')}</p>
+                            <div class="mt-2 text-sm">
+                                <span class="line-through text-gray-400">HK$${p.price}</span>
+                                <span class="text-red-500 font-bold ml-2">HK$${p.sale || p.price}</span>
+                            </div>
+                            ${p.sale ? `<p class="text-xs text-blue-500">特價期: ${p.saleRange[0]} ~ ${p.saleRange[1]}</p>` : ''}
+                            ${p.promo ? `<p class="text-xs text-orange-500 font-bold">★ 今日特優中</p>` : ''}
                         </div>
-                        
-                        ${p.salePeriod[0] ? `<p class="text-xs text-red-400">特價期: ${p.salePeriod[0]} ~ ${p.salePeriod[1]}</p>` : ''}
-                        
-                        <div class="flex gap-2 mt-2">
-                            ${p.coupon.active ? `<span class="bg-yellow-100 text-yellow-700 text-[10px] p-1 rounded">券: ${p.coupon.period[1]}止</span>` : ''}
-                            ${p.special.active ? `<span class="bg-orange-100 text-orange-700 text-[10px] p-1 rounded">🔥 特優: ${p.special.period[1]}止</span>` : ''}
-                        </div>
-
-                        <div class="mt-4 border-t pt-2">
-                            <details class="text-xs text-gray-500 cursor-pointer">
-                                <summary>查看歷史價格</summary>
-                                <ul class="mt-1">${p.history.map(h => `<li>${h.date}: $${h.price}</li>`).join('')}</ul>
-                            </details>
-                        </div>
-
-                        <div class="flex gap-2 mt-4">
-                            <button onclick="editProduct(${index})" class="flex-1 bg-gray-100 text-sm py-1 rounded">編輯</button>
-                            <button onclick="deleteProduct(${index})" class="flex-1 bg-red-50 text-red-500 text-sm py-1 rounded">刪除</button>
-                            <a href="${p.link}" target="_blank" class="flex-1 bg-blue-50 text-blue-500 text-sm py-1 text-center rounded">連結</a>
+                        <div class="flex flex-col gap-2">
+                            <button onclick="addToPlan(${p.id})" class="bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs">加入清單</button>
+                            <button onclick="deleteProduct(${p.id})" class="text-red-400 text-xs">刪除</button>
                         </div>
                     </div>
                 </div>
             `).join('');
         }
 
-        function deleteProduct(index) {
-            if(confirm('確定刪除嗎？')) {
-                products.splice(index, 1);
-                localStorage.setItem('priceTracker', JSON.stringify(products));
-                renderProducts();
+        // 採購清單邏輯
+        function createNewList() {
+            const name = prompt("清單名稱：", "我的購物車");
+            if (name) {
+                planLists.push({ id: Date.now(), name: name, items: [] });
+                savePlans();
+                renderPlanLists();
             }
         }
 
-        function editProduct(index) {
-            const p = products[index];
-            document.getElementById('pName').value = p.name;
-            document.getElementById('pCategory').value = p.category;
-            updateSubCategory();
-            document.getElementById('pSubCategory').value = p.subCategory;
-            document.getElementById('pPrice').value = p.price;
-            document.getElementById('pSalePrice').value = p.salePrice;
-            document.getElementById('editIndex').value = index;
-            document.getElementById('formTitle').innerText = "編輯商品：" + p.name;
-            window.scrollTo(0, 0);
+        function addToPlan(prodId) {
+            if (planLists.length === 0) { alert("請先建立一個採購清單"); return; }
+            const prod = products.find(p => p.id === prodId);
+            // 預設加入到第一個清單
+            planLists[0].items.push({ ...prod, count: 1, uniqueId: Date.now() });
+            savePlans();
+            alert("已加入第一個清單");
         }
 
-        updateSubCategory();
-        renderProducts();
+        function renderPlanLists() {
+            const container = document.getElementById('shoppingLists');
+            container.innerHTML = planLists.map(list => {
+                let total = list.items.reduce((sum, item) => sum + (Number(item.sale || item.price) * item.count), 0);
+                return `
+                <div class="bg-white p-4 rounded-lg shadow-sm border">
+                    <div class="flex justify-between mb-2">
+                        <input type="text" value="${list.name}" onchange="renameList(${list.id}, this.value)" class="font-bold text-lg bg-transparent">
+                        <button onclick="deleteList(${list.id})" class="text-red-500 text-sm">刪除清單</button>
+                    </div>
+                    <div class="divide-y">
+                        ${list.items.map(item => `
+                            <div class="py-2 flex justify-between items-center text-sm">
+                                <span>${item.name} (HK$${item.sale || item.price})</span>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" value="${item.count}" class="w-12 border rounded text-center" 
+                                        onchange="updateCount(${list.id}, ${item.uniqueId}, this.value)">
+                                    <button onclick="removeItem(${list.id}, ${item.uniqueId})" class="text-gray-400">✕</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="mt-4 pt-2 border-t text-right font-bold text-blue-600">
+                        總計: HK$${total}
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function updateCount(listId, itemId, val) {
+            const list = planLists.find(l => l.id === listId);
+            const item = list.items.find(i => i.uniqueId === itemId);
+            item.count = parseInt(val) || 1;
+            savePlans();
+            renderPlanLists();
+        }
+
+        function deleteProduct(id) {
+            products = products.filter(p => p.id !== id);
+            localStorage.setItem('products', JSON.stringify(products));
+            renderProducts();
+        }
+
+        function savePlans() { localStorage.setItem('planLists', JSON.stringify(planLists)); }
+        
+        // 初始啟動
+        initCategoryPills();
     </script>
 </body>
 </html>
